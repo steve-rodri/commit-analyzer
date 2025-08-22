@@ -1,0 +1,39 @@
+{
+  "name": "commit-analyzer",
+  "version": "1.0.0",
+  "description": "Analyze git commits and generate categorized summaries using LLM",
+  "main": "dist/index.js",
+  "bin": {
+    "commit-analyzer": "dist/index.js"
+  },
+  "prettier": {
+    "semi": false
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "lint": "eslint src/**/*.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "git",
+    "commit",
+    "analysis",
+    "llm",
+    "categorization"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "ts-node": "^10.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "commander": "^11.0.0"
+  }
+}

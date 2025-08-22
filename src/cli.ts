@@ -1,0 +1,104 @@
+import { readFileSync } from "fs"
+import { Command } from "commander"
+
+export interface CLIOptions {
+  output?: string
+  file?: string
+  commits: string[]
+  author?: string
+  limit?: number
+  useDefaults: boolean
+}
+
+export class CLIService {
+  static parseArguments(): CLIOptions {
+    const program = new Command()
+
+    program
+      .name("commit-analyzer")
+      .description("Analyze git commits and generate categorized summaries")
+      .version("1.0.0")
+      .option("-o, --output <file>", "Output CSV file (default: output.csv)")
+      .option(
+        "-f, --file <file>",
+        "Read commit hashes from file (one per line)",
+      )
+      .option(
+        "-a, --author <email>",
+        "Filter commits by author email (defaults to current user)",
+      )
+      .option(
+        "-l, --limit <number>",
+        "Limit number of commits to analyze",
+        parseInt,
+      )
+      .argument(
+        "[commits...]",
+        "Commit hashes to analyze (if none provided, uses current user's commits)",
+      )
+      .parse()
+
+    const options = program.opts()
+    const args = program.args
+
+    let commits: string[] = []
+    let useDefaults = false
+
+    if (options.file) {
+      commits = this.readCommitsFromFile(options.file)
+    } else if (args.length > 0) {
+      commits = args
+    } else {
+      useDefaults = true
+    }
+
+    return {
+      output: options.output || "output.csv",
+      file: options.file,
+      commits,
+      author: options.author,
+      limit: options.limit,
+      useDefaults,
+    }
+  }
+
+  private static readCommitsFromFile(filename: string): string[] {
+    try {
+      const content = readFileSync(filename, "utf8")
+      return content
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+    } catch (error) {
+      throw new Error(
+        `Failed to read commits from file ${filename}: ${error instanceof Error ? error.message : "Unknown error"}`,
+      )
+    }
+  }
+
+  static showHelp(): void {
+    console.log(`
+Usage: commit-analyzer [options] [commits...]
+
+Analyze git commits and generate categorized summaries using LLM.
+If no commits are specified, analyzes all commits authored by the current user.
+
+Options:
+  -o, --output <file>   Output CSV file (default: output.csv)
+  -f, --file <file>     Read commit hashes from file (one per line)
+  -a, --author <email>  Filter commits by author email (defaults to current user)
+  -l, --limit <number>  Limit number of commits to analyze
+  -h, --help           Display help for command
+  -V, --version        Display version number
+
+Examples:
+  commit-analyzer                                    # Analyze your authored commits
+  commit-analyzer --limit 10                         # Analyze your last 10 commits
+  commit-analyzer --author user@example.com          # Analyze specific user's commits
+  commit-analyzer abc123 def456 ghi789               # Analyze specific commits
+  commit-analyzer --file commits.txt                 # Read commits from file
+  commit-analyzer --output analysis.csv --limit 20   # Analyze last 20 commits to custom file
+    `)
+  }
+}
+
