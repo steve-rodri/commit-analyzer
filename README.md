@@ -95,9 +95,70 @@ The program includes comprehensive error handling for:
 
 - Invalid commit hashes
 - Git repository validation
-- LLM analysis failures
+- LLM analysis failures with automatic retry
 - File I/O errors
 - Network connectivity issues
+
+### Resume Capability
+
+The tool automatically:
+- Saves progress checkpoints every 10 commits
+- Saves immediately when a failure occurs
+- **Stops processing after a commit fails all retry attempts**
+- Exports partial results to the CSV file before exiting
+
+If the process stops (e.g., after 139 commits due to API failure), you can resume from where it left off:
+
+```bash
+# Resume from last checkpoint
+npx commit-analyzer --resume
+
+# Clear checkpoint and start fresh
+npx commit-analyzer --clear
+
+# View checkpoint status (it will prompt you)
+npx commit-analyzer --resume
+```
+
+The checkpoint file (`.commit-analyzer-progress.json`) contains:
+- List of all commits to process
+- Successfully processed commits (including failed ones to skip on resume)
+- Analyzed commit data (only successful ones)
+- Output file location
+
+**Important**: When a commit fails after all retries (default 3), the process stops immediately to prevent wasting API calls. The successfully analyzed commits up to that point are saved to the CSV file.
+
+### Retry Logic
+
+The tool includes automatic retry logic with exponential backoff for handling API failures when processing many commits. This is especially useful when analyzing large numbers of commits that might trigger rate limits.
+
+#### Configuration
+
+You can configure the retry behavior using environment variables:
+
+- `LLM_MAX_RETRIES`: Maximum number of retry attempts (default: 3)
+- `LLM_INITIAL_RETRY_DELAY`: Initial delay between retries in milliseconds (default: 5000)
+- `LLM_MAX_RETRY_DELAY`: Maximum delay between retries in milliseconds (default: 30000)
+- `LLM_RETRY_MULTIPLIER`: Multiplier for exponential backoff (default: 2)
+
+#### Examples
+
+```bash
+# More aggressive retries for large batches (e.g., 139+ commits)
+LLM_MAX_RETRIES=5 LLM_INITIAL_RETRY_DELAY=10000 npx commit-analyzer --limit 200
+
+# Faster retries for testing
+LLM_MAX_RETRIES=2 LLM_INITIAL_RETRY_DELAY=2000 npx commit-analyzer
+
+# Conservative approach for rate-limited APIs
+LLM_MAX_RETRIES=4 LLM_INITIAL_RETRY_DELAY=15000 LLM_MAX_RETRY_DELAY=60000 npx commit-analyzer
+```
+
+The retry mechanism automatically:
+- Retries failed API calls with increasing delays
+- Shows progress and retry attempts in the console
+- Continues processing remaining commits even if some fail
+- Reports the total number of successful and failed commits at the end
 
 ## Development
 

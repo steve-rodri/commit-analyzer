@@ -2,22 +2,55 @@ import { execSync } from "child_process"
 import { CommitInfo, LLMAnalysis } from "./types"
 
 export class LLMService {
+  private static readonly MAX_RETRIES = parseInt(process.env.LLM_MAX_RETRIES || "3", 10)
+  private static readonly INITIAL_RETRY_DELAY = parseInt(process.env.LLM_INITIAL_RETRY_DELAY || "5000", 10)
+  private static readonly MAX_RETRY_DELAY = parseInt(process.env.LLM_MAX_RETRY_DELAY || "30000", 10)
+  private static readonly RETRY_MULTIPLIER = parseFloat(process.env.LLM_RETRY_MULTIPLIER || "2")
+
   static async analyzeCommit(commit: CommitInfo): Promise<LLMAnalysis> {
     const prompt = this.buildPrompt(commit.message, commit.diff)
+    
+    let lastError: Error | null = null
+    
+    for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
+      try {
+        const claudeOutput = execSync(`claude`, {
+          input: prompt,
+          encoding: "utf8",
+          stdio: ["pipe", "pipe", "pipe"],
+          timeout: 60000,
+        })
 
-    try {
-      const claudeOutput = execSync(`claude`, {
-        input: prompt,
-        encoding: "utf8",
-        stdio: ["pipe", "pipe", "pipe"],
-      })
-
-      return this.parseResponse(claudeOutput)
-    } catch (error) {
-      throw new Error(
-        `Failed to analyze commit ${commit.hash}: ${error instanceof Error ? error.message : "Unknown error"}`,
-      )
+        return this.parseResponse(claudeOutput)
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error("Unknown error")
+        
+        if (attempt < this.MAX_RETRIES) {
+          const delay = Math.min(
+            this.INITIAL_RETRY_DELAY * Math.pow(this.RETRY_MULTIPLIER, attempt - 1),
+            this.MAX_RETRY_DELAY
+          )
+          
+          console.log(
+            `  - Attempt ${attempt}/${this.MAX_RETRIES} failed for commit ${commit.hash.substring(0, 8)}. Retrying in ${delay / 1000}s...`
+          )
+          
+          await this.sleep(delay)
+        }
+      }
     }
+    
+    throw new Error(
+      `Failed to analyze commit ${commit.hash} after ${this.MAX_RETRIES} attempts: ${lastError?.message || "Unknown error"}`,
+    )
+  }
+  
+  private static sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms))
+  }
+  
+  static getMaxRetries(): number {
+    return this.MAX_RETRIES
   }
 
   private static buildPrompt(commitMessage: string, diff: string): string {

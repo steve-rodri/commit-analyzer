@@ -8,6 +8,8 @@ export interface CLIOptions {
   author?: string
   limit?: number
   useDefaults: boolean
+  resume?: boolean
+  clear?: boolean
 }
 
 export class CLIService {
@@ -31,6 +33,14 @@ export class CLIService {
         "-l, --limit <number>",
         "Limit number of commits to analyze",
         parseInt,
+      )
+      .option(
+        "-r, --resume",
+        "Resume from last checkpoint if available",
+      )
+      .option(
+        "-c, --clear",
+        "Clear any existing progress checkpoint",
       )
       .argument(
         "[commits...]",
@@ -59,6 +69,8 @@ export class CLIService {
       author: options.author,
       limit: options.limit,
       useDefaults,
+      resume: options.resume,
+      clear: options.clear,
     }
   }
 
@@ -88,6 +100,8 @@ Options:
   -f, --file <file>     Read commit hashes from file (one per line)
   -a, --author <email>  Filter commits by author email (defaults to current user)
   -l, --limit <number>  Limit number of commits to analyze
+  -r, --resume          Resume from last checkpoint if available
+  -c, --clear           Clear any existing progress checkpoint
   -h, --help           Display help for command
   -V, --version        Display version number
 
@@ -98,6 +112,8 @@ Examples:
   commit-analyzer abc123 def456 ghi789               # Analyze specific commits
   commit-analyzer --file commits.txt                 # Read commits from file
   commit-analyzer --output analysis.csv --limit 20   # Analyze last 20 commits to custom file
+  commit-analyzer --resume                           # Resume from last checkpoint
+  commit-analyzer --clear                            # Clear checkpoint and start fresh
     `)
   }
 }
