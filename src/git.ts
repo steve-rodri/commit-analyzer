@@ -89,7 +89,7 @@ export class GitService {
       const limitFlag = limit ? `--max-count=${limit}` : ""
 
       const output = execSync(
-        `git log --author="${authorFilter}" --format="%H" ${limitFlag}`,
+        `git log --author="${authorFilter}" --format="%H" --no-merges ${limitFlag}`,
         {
           encoding: "utf8",
           stdio: ["pipe", "pipe", "pipe"],

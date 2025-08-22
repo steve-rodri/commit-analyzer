@@ -8,6 +8,7 @@ A TypeScript/Node.js program that analyzes git commits and generates categorized
 - Categorize commits using LLM analysis into: `tweak`, `feature`, or `process`
 - Generate CSV reports with year, category, summary, and description
 - Support for batch processing multiple commits
+- Automatically filters out merge commits for cleaner analysis
 - Robust error handling and validation
 
 ## Installation
