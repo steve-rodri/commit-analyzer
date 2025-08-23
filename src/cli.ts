@@ -1,8 +1,10 @@
-import { readFileSync } from "fs"
+import { readFileSync, mkdirSync } from "fs"
 import { Command } from "commander"
+import { join, dirname } from "path"
 
 export interface CLIOptions {
   output?: string
+  outputDir?: string
   file?: string
   commits: string[]
   author?: string
@@ -24,7 +26,11 @@ export class CLIService {
       .name("commit-analyzer")
       .description("Analyze git commits and generate categorized summaries")
       .version("1.0.0")
-      .option("-o, --output <file>", "Output CSV file (default: output.csv)")
+      .option("-o, --output <file>", "Output CSV file (default: commits.csv)")
+      .option(
+        "--output-dir <dir>",
+        "Output directory for CSV and report files (default: current directory)",
+      )
       .option(
         "-f, --file <file>",
         "Read commit hashes from file (one per line)",
@@ -83,7 +89,8 @@ export class CLIService {
     }
 
     return {
-      output: options.output || "output.csv",
+      output: options.output || CLIService.resolveOutputPath("commits.csv", options.outputDir),
+      outputDir: options.outputDir,
       file: options.file,
       commits,
       author: options.author,
@@ -112,6 +119,24 @@ export class CLIService {
     }
   }
 
+  /**
+   * Resolve the full file path with optional output directory.
+   */
+  static resolveOutputPath(filename: string, outputDir?: string): string {
+    if (outputDir) {
+      // Ensure output directory exists
+      try {
+        mkdirSync(outputDir, { recursive: true })
+      } catch (error) {
+        throw new Error(
+          `Failed to create output directory ${outputDir}: ${error instanceof Error ? error.message : "Unknown error"}`,
+        )
+      }
+      return join(outputDir, filename)
+    }
+    return filename
+  }
+
   static showHelp(): void {
     console.log(`
 Usage: commit-analyzer [options] [commits...]
@@ -120,8 +145,9 @@ Analyze git commits and generate categorized summaries using LLM.
 If no commits are specified, analyzes all commits authored by the current user.
 
 Options:
-  -o, --output <file>   Output file (default: output.csv for analysis, summary-report.md for reports)
-  -f, --file <file>     Read commit hashes from file (one per line)
+  -o, --output <file>     Output file (default: commits.csv for analysis, report.md for reports)
+  --output-dir <dir>      Output directory for CSV and report files (default: current directory)
+  -f, --file <file>       Read commit hashes from file (one per line)
   -a, --author <email>  Filter commits by author email (defaults to current user)
   -l, --limit <number>  Limit number of commits to analyze
   -r, --resume          Resume from last checkpoint if available

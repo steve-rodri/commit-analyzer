@@ -32,6 +32,11 @@ async function main(): Promise<void> {
 
     const options = CLIService.parseArguments()
 
+    // Resolve output file with output directory
+    if (options.output) {
+      options.output = CLIService.resolveOutputPath(options.output, options.outputDir)
+    }
+
     // Handle input CSV mode (skip commit analysis, just generate report)
     if (options.inputCsv) {
       console.log("Generating report from existing CSV...")
@@ -43,9 +48,9 @@ async function main(): Promise<void> {
       }
       
       // Determine output file name for report
-      let reportOutput = options.output || "summary-report.md"
-      if (reportOutput === "output.csv") {
-        reportOutput = "summary-report.md"
+      let reportOutput = options.output || CLIService.resolveOutputPath("report.md", options.outputDir)
+      if (reportOutput.endsWith("commits.csv") || reportOutput.endsWith("/commits.csv")) {
+        reportOutput = CLIService.resolveOutputPath("report.md", options.outputDir)
       } else if (!reportOutput.endsWith('.md')) {
         // If user specified output but it's not .md, append .md
         reportOutput = reportOutput.replace(/\.[^.]+$/, '') + '.md'
@@ -270,9 +275,19 @@ async function main(): Promise<void> {
       // Determine report output filename
       let reportOutput: string
       if (options.output!.endsWith('.csv')) {
-        reportOutput = options.output!.replace('.csv', '-report.md')
+        reportOutput = options.output!.replace('.csv', '.md')
       } else {
-        reportOutput = options.output! + '-report.md'
+        reportOutput = options.output! + '.md'
+      }
+      
+      // Handle default case - if output is commits.csv, make report report.md
+      if (reportOutput.endsWith('commits.md')) {
+        reportOutput = reportOutput.replace('commits.md', 'report.md')
+      }
+      
+      // If output directory is specified but report output is just a filename, use the output directory
+      if (options.outputDir && !reportOutput.includes('/') && !reportOutput.includes('\\')) {
+        reportOutput = CLIService.resolveOutputPath(reportOutput.split('/').pop() || reportOutput, options.outputDir)
       }
       
       try {
