@@ -19,12 +19,19 @@ export class ProgressTracker {
     analyzedCommits: AnalyzedCommit[],
     outputFile: string,
   ): void {
+    // Preserve the original start time if this is an update to existing progress
+    let startTime = new Date().toISOString()
+    const existingState = this.loadProgress()
+    if (existingState) {
+      startTime = existingState.startTime
+    }
+
     const state: ProgressState = {
       totalCommits,
       processedCommits,
       analyzedCommits,
       lastProcessedIndex: processedCommits.length - 1,
-      startTime: new Date().toISOString(),
+      startTime,
       outputFile,
     }
 
