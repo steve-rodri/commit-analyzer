@@ -24,8 +24,10 @@ export class CLIService {
 
     program
       .name("commit-analyzer")
-      .description("Analyze git commits and generate categorized summaries")
-      .version("1.0.0")
+      .description(
+        "Analyze user authored git commits and generate rich commit descriptions and stakeholder reports from them.",
+      )
+      .version("1.0.1")
       .option("-o, --output <file>", "Output CSV file (default: commits.csv)")
       .option(
         "--output-dir <dir>",
@@ -44,18 +46,9 @@ export class CLIService {
         "Limit number of commits to analyze",
         parseInt,
       )
-      .option(
-        "-r, --resume",
-        "Resume from last checkpoint if available",
-      )
-      .option(
-        "-c, --clear",
-        "Clear any existing progress checkpoint",
-      )
-      .option(
-        "-m, --model <model>",
-        "LLM model to use (claude, gemini, codex)",
-      )
+      .option("-r, --resume", "Resume from last checkpoint if available")
+      .option("-c, --clear", "Clear any existing progress checkpoint")
+      .option("-m, --model <model>", "LLM model to use (claude, gemini, codex)")
       .option(
         "--report",
         "Generate condensed markdown report from existing CSV",
@@ -89,7 +82,9 @@ export class CLIService {
     }
 
     return {
-      output: options.output || CLIService.resolveOutputPath("commits.csv", options.outputDir),
+      output:
+        options.output ||
+        CLIService.resolveOutputPath("commits.csv", options.outputDir),
       outputDir: options.outputDir,
       file: options.file,
       commits,
@@ -173,4 +168,3 @@ Examples:
     `)
   }
 }
-
