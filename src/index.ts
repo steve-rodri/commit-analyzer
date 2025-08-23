@@ -5,6 +5,7 @@ import { LLMService } from "./llm"
 import { CSVService } from "./csv"
 import { CLIService } from "./cli"
 import { ProgressTracker } from "./progress"
+import { MarkdownReportGenerator } from "./report-generator"
 import { handleError, GitError, ValidationError } from "./errors"
 import { AnalyzedCommit } from "./types"
 import * as readline from "readline"
@@ -30,6 +31,29 @@ async function main(): Promise<void> {
     }
 
     const options = CLIService.parseArguments()
+
+    // Handle input CSV mode (skip commit analysis, just generate report)
+    if (options.inputCsv) {
+      console.log("Generating report from existing CSV...")
+      
+      // Ensure --report flag is set when using --input-csv
+      if (!options.report) {
+        options.report = true
+        console.log("Note: --report flag automatically enabled when using --input-csv")
+      }
+      
+      // Determine output file name for report
+      let reportOutput = options.output || "summary-report.md"
+      if (reportOutput === "output.csv") {
+        reportOutput = "summary-report.md"
+      } else if (!reportOutput.endsWith('.md')) {
+        // If user specified output but it's not .md, append .md
+        reportOutput = reportOutput.replace(/\.[^.]+$/, '') + '.md'
+      }
+      
+      await MarkdownReportGenerator.generateReport(options.inputCsv, reportOutput)
+      return
+    }
 
     // Prompt to select LLM model if not provided
     const availableModels = LLMService.detectAvailableModels()
@@ -209,6 +233,27 @@ async function main(): Promise<void> {
     
     if (failedCommits > 0) {
       console.log(`⚠️  Failed to analyze ${failedCommits} commits (see errors above)`)
+    }
+    
+    // Generate report if --report flag is provided
+    if (options.report) {
+      console.log("\nGenerating condensed markdown report...")
+      
+      // Determine report output filename
+      let reportOutput: string
+      if (options.output!.endsWith('.csv')) {
+        reportOutput = options.output!.replace('.csv', '-report.md')
+      } else {
+        reportOutput = options.output! + '-report.md'
+      }
+      
+      try {
+        await MarkdownReportGenerator.generateReport(options.output!, reportOutput)
+        console.log(`📊 Report generated: ${reportOutput}`)
+      } catch (error) {
+        console.error(`⚠️  Failed to generate report: ${error instanceof Error ? error.message : "Unknown error"}`)
+        console.log("CSV analysis was successful, but report generation failed.")
+      }
     }
     
     // Clear checkpoint on successful completion
