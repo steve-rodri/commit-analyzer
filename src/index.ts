@@ -112,6 +112,12 @@ async function main(): Promise<void> {
           options.output = progressState.outputFile
           
           console.log(`\n▶️  Resuming with ${commitsToAnalyze.length} remaining commits...`)
+          console.log(`📊 Previous progress: ${processedCommits.length}/${progressState.totalCommits.length} commits processed`)
+          if (options.verbose) {
+            console.log(`   Debug: analyzedCommits.length = ${analyzedCommits.length}`)
+            console.log(`   Debug: processedCommits.length = ${processedCommits.length}`)
+            console.log(`   Debug: commitsToAnalyze.length = ${commitsToAnalyze.length}`)
+          }
         } else {
           ProgressTracker.clearProgress()
           console.log("Starting fresh analysis...")
@@ -191,6 +197,9 @@ async function main(): Promise<void> {
             options.output!,
           )
           console.log(`  💾 Progress saved (${overallIndex}/${totalCommitsToProcess})`)
+          if (options.verbose) {
+            console.log(`     Debug: Saved ${processedCommits.length} processed, ${analyzedCommits.length} analyzed`)
+          }
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error"
