@@ -11,6 +11,8 @@ export interface CLIOptions {
   resume?: boolean
   clear?: boolean
   model?: string
+  report?: boolean
+  inputCsv?: string
 }
 
 export class CLIService {
@@ -47,6 +49,14 @@ export class CLIService {
         "-m, --model <model>",
         "LLM model to use (claude, gemini, codex)",
       )
+      .option(
+        "--report",
+        "Generate condensed markdown report from existing CSV",
+      )
+      .option(
+        "--input-csv <file>",
+        "Input CSV file to read for report generation",
+      )
       .argument(
         "[commits...]",
         "Commit hashes to analyze (if none provided, uses current user's commits)",
@@ -77,6 +87,8 @@ export class CLIService {
       resume: options.resume,
       clear: options.clear,
       model: options.model,
+      report: options.report,
+      inputCsv: options.inputCsv,
     }
   }
 
@@ -102,12 +114,14 @@ Analyze git commits and generate categorized summaries using LLM.
 If no commits are specified, analyzes all commits authored by the current user.
 
 Options:
-  -o, --output <file>   Output CSV file (default: output.csv)
+  -o, --output <file>   Output file (default: output.csv for analysis, summary-report.md for reports)
   -f, --file <file>     Read commit hashes from file (one per line)
   -a, --author <email>  Filter commits by author email (defaults to current user)
   -l, --limit <number>  Limit number of commits to analyze
   -r, --resume          Resume from last checkpoint if available
   -c, --clear           Clear any existing progress checkpoint
+  --report              Generate condensed markdown report from existing CSV
+  --input-csv <file>    Input CSV file to read for report generation
   -h, --help           Display help for command
   -V, --version        Display version number
 
@@ -120,6 +134,9 @@ Examples:
   commit-analyzer --output analysis.csv --limit 20   # Analyze last 20 commits to custom file
   commit-analyzer --resume                           # Resume from last checkpoint
   commit-analyzer --clear                            # Clear checkpoint and start fresh
+  commit-analyzer --report                           # Analyze commits, generate CSV, then generate report
+  commit-analyzer --input-csv data.csv --report      # Skip analysis, generate report from existing CSV
+  commit-analyzer --report -o custom-report.md       # Analyze commits, generate CSV, then generate custom report
     `)
   }
 }
