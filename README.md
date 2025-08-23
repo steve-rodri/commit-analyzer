@@ -7,6 +7,8 @@ A TypeScript/Node.js program that analyzes git commits and generates categorized
 - Extract commit details (message, date, diff) from git repositories
 - Categorize commits using LLM analysis into: `tweak`, `feature`, or `process`
 - Generate CSV reports with year, category, summary, and description
+- Generate condensed markdown reports from CSV data for stakeholder communication
+- Support for multiple LLM models (Claude, Gemini, Codex) with automatic detection
 - Support for batch processing multiple commits
 - Automatically filters out merge commits for cleaner analysis
 - Robust error handling and validation
@@ -46,14 +48,28 @@ npx commit-analyzer --file commits.txt
 
 # Specify output file with default behavior
 npx commit-analyzer --output analysis.csv --limit 20
+
+# Generate markdown report from existing CSV
+npx commit-analyzer --report --input-csv analysis.csv
+
+# Analyze commits and generate both CSV and markdown report
+npx commit-analyzer --report --limit 50
+
+# Use specific LLM model
+npx commit-analyzer --model claude --limit 10
 ```
 
 ### Options
 
-- `-o, --output <file>`: Output CSV file (default: `output.csv`)
+- `-o, --output <file>`: Output file (default: `output.csv` for analysis, `summary-report.md` for reports)
 - `-f, --file <file>`: Read commit hashes from file (one per line)
 - `-a, --author <email>`: Filter commits by author email (defaults to current user)
 - `-l, --limit <number>`: Limit number of commits to analyze
+- `-m, --model <model>`: LLM model to use (claude, gemini, codex)
+- `-r, --resume`: Resume from last checkpoint if available
+- `-c, --clear`: Clear any existing progress checkpoint
+- `--report`: Generate condensed markdown report from existing CSV
+- `--input-csv <file>`: Input CSV file to read for report generation
 - `-h, --help`: Display help
 - `-V, --version`: Display version
 
@@ -67,7 +83,9 @@ def456ghi789
 ghi789jkl012
 ```
 
-## Output Format
+## Output Formats
+
+### CSV Output
 
 The program generates a CSV file with the following columns:
 
@@ -76,12 +94,25 @@ The program generates a CSV file with the following columns:
 - `summary`: One-line description (max 80 characters)
 - `description`: Detailed explanation (2-3 sentences)
 
+### Markdown Report Output
+
+When using the `--report` option, the program generates a condensed markdown report that:
+
+- Groups commits by year (most recent first)
+- Organizes by categories: Features, Processes, Tweaks & Bug Fixes
+- Consolidates similar items for stakeholder readability
+- Includes commit count statistics
+- Uses professional language suitable for both technical and non-technical audiences
+
 ## Requirements
 
 - Node.js 18+ with TypeScript support
 - Git repository (must be run within a git repository)
-- Claude CLI installed and configured
-- Valid git commit hashes
+- At least one supported LLM CLI tool:
+  - Claude CLI (`claude`) - recommended, defaults to Sonnet model
+  - Gemini CLI (`gemini`)
+  - Codex CLI (`codex`)
+- Valid git commit hashes (when specifying commits manually)
 
 ## Categories
 
@@ -197,4 +228,16 @@ npx commit-analyzer --file recent_commits.txt --output recent_analysis.csv
 
 # Quick analysis of your recent work
 npx commit-analyzer --limit 10
+
+# Generate both CSV and markdown report from analysis
+npx commit-analyzer --report --limit 100 --output yearly_analysis.csv
+
+# Generate only a markdown report from existing CSV
+npx commit-analyzer --report --input-csv existing_analysis.csv --output team_report.md
+
+# Use specific LLM model for analysis
+npx commit-analyzer --model gemini --limit 25
+
+# Resume interrupted analysis with progress tracking
+npx commit-analyzer --resume
 ```
