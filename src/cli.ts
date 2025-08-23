@@ -13,6 +13,7 @@ export interface CLIOptions {
   model?: string
   report?: boolean
   inputCsv?: string
+  verbose?: boolean
 }
 
 export class CLIService {
@@ -57,6 +58,10 @@ export class CLIService {
         "--input-csv <file>",
         "Input CSV file to read for report generation",
       )
+      .option(
+        "-v, --verbose",
+        "Enable verbose logging (shows detailed error information)",
+      )
       .argument(
         "[commits...]",
         "Commit hashes to analyze (if none provided, uses current user's commits)",
@@ -89,6 +94,7 @@ export class CLIService {
       model: options.model,
       report: options.report,
       inputCsv: options.inputCsv,
+      verbose: options.verbose,
     }
   }
 
@@ -122,6 +128,7 @@ Options:
   -c, --clear           Clear any existing progress checkpoint
   --report              Generate condensed markdown report from existing CSV
   --input-csv <file>    Input CSV file to read for report generation
+  -v, --verbose         Enable verbose logging (shows detailed error information)
   -h, --help           Display help for command
   -V, --version        Display version number
 

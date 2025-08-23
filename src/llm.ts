@@ -3,6 +3,7 @@ import { CommitInfo, LLMAnalysis } from "./types"
 
 export class LLMService {
   private static model: string
+  private static verbose: boolean = false
 
   /**
    * Detect available LLM models by checking CLI commands.
@@ -41,6 +42,13 @@ export class LLMService {
    */
   static setModel(model: string): void {
     this.model = model
+  }
+
+  /**
+   * Set verbose mode for detailed error logging.
+   */
+  static setVerbose(verbose: boolean): void {
+    this.verbose = verbose
   }
 
   /**
@@ -104,21 +112,62 @@ export class LLMService {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error("Unknown error")
         
-        // Log detailed error information for debugging
-        console.log(`  - Error details for commit ${commit.hash.substring(0, 8)}:`)
-        console.log(`    Command: ${currentModel}`)
-        console.log(`    Error message: ${lastError.message}`)
-        if (this.isClaudeModel(currentModel)) {
-          console.log(`    Prompt length: ${prompt.length} characters`)
-        }
+        // Check if this is a rate limit error
+        const rateLimitInfo = this.isRateLimitError(error)
         
-        // If it's an exec error, log additional details
-        if (error && typeof error === 'object' && 'stderr' in error) {
-          const execError = error as any
-          console.log(`    Exit code: ${execError.status || 'unknown'}`)
-          console.log(`    Signal: ${execError.signal || 'none'}`)
-          console.log(`    Stderr: ${execError.stderr || 'none'}`)
-          console.log(`    Stdout: ${execError.stdout || 'none'}`)
+        if (rateLimitInfo.isRateLimit) {
+          // For rate limits, show user-friendly message immediately
+          const friendlyMessage = this.getRateLimitMessage(rateLimitInfo.service, rateLimitInfo.limitType)
+          console.log(`  - ${friendlyMessage}`)
+          
+          // Show detailed error info only in verbose mode
+          if (this.verbose) {
+            console.log(`  - Verbose error details for commit ${commit.hash.substring(0, 8)}:`)
+            console.log(`    Command: ${currentModel}`)
+            console.log(`    Error message: ${lastError.message}`)
+            if (this.isClaudeModel(currentModel)) {
+              console.log(`    Prompt length: ${prompt.length} characters`)
+            }
+            
+            // If it's an exec error, log additional details
+            if (error && typeof error === 'object' && 'stderr' in error) {
+              const execError = error as any
+              console.log(`    Exit code: ${execError.status || 'unknown'}`)
+              console.log(`    Signal: ${execError.signal || 'none'}`)
+              if (execError.stderr) {
+                console.log(`    Stderr: ${execError.stderr.substring(0, 1000)}${execError.stderr.length > 1000 ? '...' : ''}`)
+              }
+            }
+          }
+          
+          // If it's a daily quota error, don't retry - fail immediately
+          if (rateLimitInfo.limitType === "daily quota") {
+            throw new Error(
+              `Daily quota exceeded for ${rateLimitInfo.service || 'LLM service'}. Retrying will not help until quota resets.`,
+            )
+          }
+        } else {
+          // For non-rate-limit errors, show detailed info based on verbose mode
+          if (this.verbose) {
+            console.log(`  - Error details for commit ${commit.hash.substring(0, 8)}:`)
+            console.log(`    Command: ${currentModel}`)
+            console.log(`    Error message: ${lastError.message}`)
+            if (this.isClaudeModel(currentModel)) {
+              console.log(`    Prompt length: ${prompt.length} characters`)
+            }
+            
+            // If it's an exec error, log additional details
+            if (error && typeof error === 'object' && 'stderr' in error) {
+              const execError = error as any
+              console.log(`    Exit code: ${execError.status || 'unknown'}`)
+              console.log(`    Signal: ${execError.signal || 'none'}`)
+              console.log(`    Stderr: ${execError.stderr || 'none'}`)
+              console.log(`    Stdout: ${execError.stdout || 'none'}`)
+            }
+          } else {
+            // In non-verbose mode, show concise error message
+            console.log(`  - Analysis failed: ${lastError.message}`)
+          }
         }
 
         if (attempt < this.MAX_RETRIES) {
@@ -279,5 +328,69 @@ Format as JSON:
     category: string,
   ): category is "tweak" | "feature" | "process" {
     return ["tweak", "feature", "process"].includes(category)
+  }
+
+  /**
+   * Check if an error is related to rate limiting or quota exceeded.
+   */
+  private static isRateLimitError(error: any): { isRateLimit: boolean; service?: string; limitType?: string } {
+    const errorMessage = error?.message?.toLowerCase() || ""
+    const stderr = error?.stderr?.toLowerCase() || ""
+    const stdout = error?.stdout?.toLowerCase() || ""
+    const combinedOutput = `${errorMessage} ${stderr} ${stdout}`
+
+    // Check for Gemini rate limit patterns
+    if (combinedOutput.includes("quota exceeded") && combinedOutput.includes("gemini")) {
+      if (combinedOutput.includes("requests per day")) {
+        return { isRateLimit: true, service: "Gemini", limitType: "daily quota" }
+      }
+      if (combinedOutput.includes("requests per minute")) {
+        return { isRateLimit: true, service: "Gemini", limitType: "per-minute rate limit" }
+      }
+      return { isRateLimit: true, service: "Gemini", limitType: "quota limit" }
+    }
+
+    // Check for Claude rate limit patterns
+    if (combinedOutput.includes("rate limit") && combinedOutput.includes("claude")) {
+      return { isRateLimit: true, service: "Claude", limitType: "rate limit" }
+    }
+
+    // Check for generic rate limit indicators
+    if (combinedOutput.includes("429") || 
+        combinedOutput.includes("too many requests") ||
+        combinedOutput.includes("rate limit") ||
+        combinedOutput.includes("quota exceeded")) {
+      // Try to determine service from model name
+      const currentModel = this.getModel().toLowerCase()
+      if (currentModel.includes("gemini")) {
+        return { isRateLimit: true, service: "Gemini", limitType: "rate/quota limit" }
+      }
+      if (currentModel.includes("claude")) {
+        return { isRateLimit: true, service: "Claude", limitType: "rate limit" }
+      }
+      return { isRateLimit: true, limitType: "rate/quota limit" }
+    }
+
+    return { isRateLimit: false }
+  }
+
+  /**
+   * Get user-friendly error message for rate limit errors.
+   */
+  private static getRateLimitMessage(service?: string, limitType?: string): string {
+    if (service === "Gemini" && limitType === "daily quota") {
+      return "⚠️  Gemini daily quota exceeded. The limit resets at midnight Pacific Time. Consider switching to a different model or resuming tomorrow."
+    }
+    
+    if (service === "Gemini" && limitType === "per-minute rate limit") {
+      return "⚠️  Gemini rate limit exceeded. Wait a minute before retrying, or consider switching to a different model."
+    }
+    
+    if (service === "Claude") {
+      return "⚠️  Claude rate limit exceeded. Wait a moment before retrying, or consider switching to a different model."
+    }
+    
+    const serviceMsg = service ? `${service} ` : ""
+    return `⚠️  ${serviceMsg}rate limit exceeded. Consider switching models or waiting before retrying.`
   }
 }

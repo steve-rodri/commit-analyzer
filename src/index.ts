@@ -72,6 +72,7 @@ async function main(): Promise<void> {
       )
     }
     LLMService.setModel(selectedModel)
+    LLMService.setVerbose(options.verbose || false)
 
 
 
@@ -197,6 +198,11 @@ async function main(): Promise<void> {
         failedCommits++
         processedCommits.push(hash)
         
+        // Check if this was a rate limit error and provide helpful messaging
+        const isRateLimitError = errorMessage.includes("quota exceeded") || 
+                                errorMessage.includes("rate limit") || 
+                                errorMessage.includes("429")
+        
         // Save progress on failure
         ProgressTracker.saveProgress(
           allCommitsToAnalyze,
@@ -206,8 +212,21 @@ async function main(): Promise<void> {
         )
         console.log(`  💾 Progress saved after failure`)
         
-        // Always stop on failure after max retries
-        console.error(`\n⛔ Stopping due to failure (after ${LLMService.getMaxRetries()} retry attempts)`)
+        // Provide specific guidance based on error type
+        if (isRateLimitError) {
+          console.error(`\n⛔ Stopping due to rate limit/quota exceeded`)
+          console.log(`💡 Suggestions:`)
+          console.log(`   • Wait for quota to reset (daily limits typically reset at midnight Pacific Time)`)
+          console.log(`   • Switch to a different model: --model claude or --model codex`)
+          console.log(`   • Resume later with: --resume`)
+        } else {
+          console.error(`\n⛔ Stopping due to failure (after ${LLMService.getMaxRetries()} retry attempts)`)
+          console.log(`💡 Suggestions:`)
+          console.log(`   • Check your LLM model configuration and credentials`)
+          console.log(`   • Run with --verbose flag for detailed error information`)
+          console.log(`   • Resume later with: --resume`)
+        }
+        
         console.log(`✅ Successfully analyzed ${analyzedCommits.length} commits before failure`)
         console.log(`📁 Progress saved. Use --resume to continue from commit ${overallIndex + 1}`)
         
