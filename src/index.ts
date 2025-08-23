@@ -31,6 +31,28 @@ async function main(): Promise<void> {
 
     const options = CLIService.parseArguments()
 
+    // Prompt to select LLM model if not provided
+    const availableModels = LLMService.detectAvailableModels()
+    if (availableModels.length === 0) {
+      throw new Error("No supported LLM models found. Please install claude, gemini, or codex.")
+    }
+    const defaultModel = LLMService.detectDefaultModel()
+    let selectedModel = options.model
+    if (!selectedModel) {
+      const rlModel = readline.createInterface({ input: process.stdin, output: process.stdout })
+      selectedModel = await new Promise<string>((resolve) =>
+        rlModel.question(`Select LLM model (${availableModels.join("/")}) [${defaultModel}]: `, (answer) => {
+          rlModel.close()
+          resolve(answer.trim() || defaultModel)
+        }),
+      )
+    }
+    LLMService.setModel(selectedModel)
+
+
+
+
+
     // Handle clear flag
     if (options.clear) {
       if (ProgressTracker.hasProgress()) {
