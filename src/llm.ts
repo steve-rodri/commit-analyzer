@@ -29,6 +29,10 @@ export class LLMService {
         "No supported LLM models found. Please install claude, gemini, or codex.",
       )
     }
+    // Default to sonnet if claude is available
+    if (available.includes('claude')) {
+      return 'claude --model sonnet'
+    }
     return available[0]
   }
 
@@ -63,16 +67,33 @@ export class LLMService {
   private static readonly RETRY_MULTIPLIER = parseFloat(
     process.env.LLM_RETRY_MULTIPLIER || "2",
   )
+  // Claude-specific configuration with backward compatibility
+  private static readonly CLAUDE_MAX_PROMPT_LENGTH = parseInt(
+    process.env.CLAUDE_MAX_PROMPT_LENGTH || process.env.LLM_MAX_PROMPT_LENGTH || "100000",
+    10,
+  )
+  private static readonly CLAUDE_MAX_DIFF_LENGTH = parseInt(
+    process.env.CLAUDE_MAX_DIFF_LENGTH || process.env.LLM_MAX_DIFF_LENGTH || "80000",
+    10,
+  )
 
   static async analyzeCommit(commit: CommitInfo): Promise<LLMAnalysis> {
-    const prompt = this.buildPrompt(commit.message, commit.diff)
+    const currentModel = this.getModel()
+    const prompt = this.buildPrompt(commit.message, commit.diff, currentModel)
+    
+    // Log prompt length for debugging - only for Claude models
+    if (this.isClaudeModel(currentModel)) {
+      console.log(`  - Prompt length: ${prompt.length} characters`)
+      if (prompt.length > this.CLAUDE_MAX_PROMPT_LENGTH) {
+        console.log(`  - Warning: Prompt exceeds Claude max length (${this.CLAUDE_MAX_PROMPT_LENGTH})`)
+      }
+    }
 
     let lastError: Error | null = null
 
     for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
       try {
-        const modelCmd = this.getModel()
-        const output = execSync(modelCmd, {
+        const output = execSync(currentModel, {
           input: prompt,
           encoding: "utf8",
           stdio: ["pipe", "pipe", "pipe"],
@@ -82,6 +103,23 @@ export class LLMService {
         return this.parseResponse(output)
       } catch (error) {
         lastError = error instanceof Error ? error : new Error("Unknown error")
+        
+        // Log detailed error information for debugging
+        console.log(`  - Error details for commit ${commit.hash.substring(0, 8)}:`)
+        console.log(`    Command: ${currentModel}`)
+        console.log(`    Error message: ${lastError.message}`)
+        if (this.isClaudeModel(currentModel)) {
+          console.log(`    Prompt length: ${prompt.length} characters`)
+        }
+        
+        // If it's an exec error, log additional details
+        if (error && typeof error === 'object' && 'stderr' in error) {
+          const execError = error as any
+          console.log(`    Exit code: ${execError.status || 'unknown'}`)
+          console.log(`    Signal: ${execError.signal || 'none'}`)
+          console.log(`    Stderr: ${execError.stderr || 'none'}`)
+          console.log(`    Stdout: ${execError.stdout || 'none'}`)
+        }
 
         if (attempt < this.MAX_RETRIES) {
           const delay = Math.min(
@@ -108,18 +146,36 @@ export class LLMService {
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
+
   static getMaxRetries(): number {
     return this.MAX_RETRIES
   }
 
-  private static buildPrompt(commitMessage: string, diff: string): string {
-    return `Analyze this git commit and provide a categorization:
+  /**
+   * Check if the current model is Claude-based
+   */
+  private static isClaudeModel(model?: string): boolean {
+    const currentModel = model || this.getModel()
+    return currentModel.toLowerCase().includes('claude')
+  }
+
+  private static buildPrompt(commitMessage: string, diff: string, model: string): string {
+    // Only truncate for Claude models
+    let truncatedDiff = diff
+    let diffTruncated = false
+    
+    if (this.isClaudeModel(model) && diff.length > this.CLAUDE_MAX_DIFF_LENGTH) {
+      truncatedDiff = diff.substring(0, this.CLAUDE_MAX_DIFF_LENGTH) + "\n\n[DIFF TRUNCATED - Original length: " + diff.length + " characters]"
+      diffTruncated = true
+    }
+    
+    const basePrompt = `Analyze this git commit and provide a categorization:
 
 COMMIT MESSAGE:
 ${commitMessage}
 
 COMMIT DIFF:
-${diff}
+${truncatedDiff}
 
 Based on the commit message and code changes, categorize this commit as one of:
 - "tweak": Minor adjustments, bug fixes, small improvements
@@ -139,6 +195,43 @@ Format as JSON:
   "description": "..."
 }
 \`\`\``
+
+    // Final length check - only for Claude models
+    if (this.isClaudeModel(model) && basePrompt.length > this.CLAUDE_MAX_PROMPT_LENGTH) {
+      // Further truncate the diff if needed
+      const overhead = basePrompt.length - this.CLAUDE_MAX_PROMPT_LENGTH
+      const newDiffLength = Math.max(1000, this.CLAUDE_MAX_DIFF_LENGTH - overhead - 200) // Keep at least 1000 chars, subtract extra for safety
+      truncatedDiff = diff.substring(0, newDiffLength) + "\n\n[DIFF HEAVILY TRUNCATED - Original length: " + diff.length + " characters]"
+      
+      return `Analyze this git commit and provide a categorization:
+
+COMMIT MESSAGE:
+${commitMessage}
+
+COMMIT DIFF:
+${truncatedDiff}
+
+Based on the commit message and code changes, categorize this commit as one of:
+- "tweak": Minor adjustments, bug fixes, small improvements
+- "feature": New functionality, major additions
+- "process": Build system, CI/CD, tooling, configuration changes
+
+Provide:
+1. Category: [tweak|feature|process]
+2. Summary: One-line description (max 80 chars)
+3. Description: Detailed explanation (2-3 sentences)
+
+Format as JSON:
+\`\`\`json
+{
+  "category": "...",
+  "summary": "...",
+  "description": "..."
+}
+\`\`\``
+    }
+    
+    return basePrompt
   }
 
   private static parseResponse(response: string): LLMAnalysis {
@@ -164,6 +257,18 @@ Format as JSON:
         description: parsed.description,
       }
     } catch (error) {
+      // Log the raw response for debugging
+      console.log(`  - Raw LLM response (first 1000 chars): ${response.substring(0, 1000)}`)
+      if (response.length > 1000) {
+        console.log(`  - Response truncated (total length: ${response.length} chars)`)
+      }
+      
+      // Try to extract and log the JSON block if it exists but is malformed
+      const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/)
+      if (jsonMatch) {
+        console.log(`  - Extracted JSON block: ${jsonMatch[1]}`)
+      }
+      
       throw new Error(
         `Failed to parse LLM response: ${error instanceof Error ? error.message : "Unknown error"}`,
       )
