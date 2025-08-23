@@ -19,6 +19,7 @@ export class GitService {
       const diff = execSync(`git show "${hash}"`, {
         encoding: "utf8",
         stdio: ["pipe", "pipe", "pipe"],
+        maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large diffs
       })
 
       return {
