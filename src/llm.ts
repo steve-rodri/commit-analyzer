@@ -60,6 +60,20 @@ export class LLMService {
     }
     return this.model
   }
+
+  /**
+   * Get the model command with appropriate flags.
+   */
+  static getModelCommand(): string {
+    const model = this.getModel()
+    
+    // Append -q flag for codex model
+    if (model === 'codex') {
+      return 'codex -q'
+    }
+    
+    return model
+  }
   private static readonly MAX_RETRIES = parseInt(
     process.env.LLM_MAX_RETRIES || "3",
     10,
@@ -87,6 +101,7 @@ export class LLMService {
 
   static async analyzeCommit(commit: CommitInfo): Promise<LLMAnalysis> {
     const currentModel = this.getModel()
+    const currentModelCommand = this.getModelCommand()
     const prompt = this.buildPrompt(commit.message, commit.diff, currentModel)
     
     // Log prompt length for debugging - only for Claude models
@@ -101,7 +116,7 @@ export class LLMService {
 
     for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
       try {
-        const output = execSync(currentModel, {
+        const output = execSync(currentModelCommand, {
           input: prompt,
           encoding: "utf8",
           stdio: ["pipe", "pipe", "pipe"],
@@ -123,7 +138,7 @@ export class LLMService {
           // Show detailed error info only in verbose mode
           if (this.verbose) {
             console.log(`  - Verbose error details for commit ${commit.hash.substring(0, 8)}:`)
-            console.log(`    Command: ${currentModel}`)
+            console.log(`    Command: ${currentModelCommand}`)
             console.log(`    Error message: ${lastError.message}`)
             if (this.isClaudeModel(currentModel)) {
               console.log(`    Prompt length: ${prompt.length} characters`)
@@ -150,7 +165,7 @@ export class LLMService {
           // For non-rate-limit errors, show detailed info based on verbose mode
           if (this.verbose) {
             console.log(`  - Error details for commit ${commit.hash.substring(0, 8)}:`)
-            console.log(`    Command: ${currentModel}`)
+            console.log(`    Command: ${currentModelCommand}`)
             console.log(`    Error message: ${lastError.message}`)
             if (this.isClaudeModel(currentModel)) {
               console.log(`    Prompt length: ${prompt.length} characters`)
