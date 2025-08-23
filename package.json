@@ -1,6 +1,6 @@
 {
   "name": "commit-analyzer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Analyze git commits and generate categories, summaries, and descriptions for each commit. Optionally generate a yearly breakdown report of your commit history.",
   "main": "dist/index.js",
   "bin": {
