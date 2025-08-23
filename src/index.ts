@@ -17,10 +17,13 @@ async function promptResume(): Promise<boolean> {
   })
 
   return new Promise((resolve) => {
-    rl.question("\nDo you want to resume from the checkpoint? (y/n): ", (answer) => {
-      rl.close()
-      resolve(answer.toLowerCase() === "y" || answer.toLowerCase() === "yes")
-    })
+    rl.question(
+      "\nDo you want to resume from the checkpoint? (y/n): ",
+      (answer) => {
+        rl.close()
+        resolve(answer.toLowerCase() === "y" || answer.toLowerCase() === "yes")
+      },
+    )
   })
 }
 
@@ -34,54 +37,74 @@ async function main(): Promise<void> {
 
     // Resolve output file with output directory
     if (options.output) {
-      options.output = CLIService.resolveOutputPath(options.output, options.outputDir)
+      options.output = CLIService.resolveOutputPath(
+        options.output,
+        options.outputDir,
+      )
     }
 
     // Handle input CSV mode (skip commit analysis, just generate report)
     if (options.inputCsv) {
       console.log("Generating report from existing CSV...")
-      
+
       // Ensure --report flag is set when using --input-csv
       if (!options.report) {
         options.report = true
-        console.log("Note: --report flag automatically enabled when using --input-csv")
+        console.log(
+          "Note: --report flag automatically enabled when using --input-csv",
+        )
       }
-      
+
       // Determine output file name for report
-      let reportOutput = options.output || CLIService.resolveOutputPath("report.md", options.outputDir)
-      if (reportOutput.endsWith("commits.csv") || reportOutput.endsWith("/commits.csv")) {
-        reportOutput = CLIService.resolveOutputPath("report.md", options.outputDir)
-      } else if (!reportOutput.endsWith('.md')) {
+      let reportOutput =
+        options.output ||
+        CLIService.resolveOutputPath("report.md", options.outputDir)
+      if (
+        reportOutput.endsWith("commits.csv") ||
+        reportOutput.endsWith("/commits.csv")
+      ) {
+        reportOutput = CLIService.resolveOutputPath(
+          "report.md",
+          options.outputDir,
+        )
+      } else if (!reportOutput.endsWith(".md")) {
         // If user specified output but it's not .md, append .md
-        reportOutput = reportOutput.replace(/\.[^.]+$/, '') + '.md'
+        reportOutput = reportOutput.replace(/\.[^.]+$/, "") + ".md"
       }
-      
-      await MarkdownReportGenerator.generateReport(options.inputCsv, reportOutput)
+
+      await MarkdownReportGenerator.generateReport(
+        options.inputCsv,
+        reportOutput,
+      )
       return
     }
 
     // Prompt to select LLM model if not provided
     const availableModels = LLMService.detectAvailableModels()
     if (availableModels.length === 0) {
-      throw new Error("No supported LLM models found. Please install claude, gemini, or codex.")
+      throw new Error(
+        "No supported LLM models found. Please install claude, gemini, or codex.",
+      )
     }
     const defaultModel = LLMService.detectDefaultModel()
     let selectedModel = options.model
     if (!selectedModel) {
-      const rlModel = readline.createInterface({ input: process.stdin, output: process.stdout })
+      const rlModel = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      })
       selectedModel = await new Promise<string>((resolve) =>
-        rlModel.question(`Select LLM model (${availableModels.join("/")}) [${defaultModel}]: `, (answer) => {
-          rlModel.close()
-          resolve(answer.trim() || defaultModel)
-        }),
+        rlModel.question(
+          `Select LLM model (${availableModels.join("/")}) [${defaultModel}]: `,
+          (answer) => {
+            rlModel.close()
+            resolve(answer.trim() || defaultModel)
+          },
+        ),
       )
     }
     LLMService.setModel(selectedModel)
     LLMService.setVerbose(options.verbose || false)
-
-
-
-
 
     // Handle clear flag
     if (options.clear) {
@@ -106,22 +129,32 @@ async function main(): Promise<void> {
       if (progressState) {
         console.log("📂 Found previous session checkpoint")
         console.log(ProgressTracker.formatProgressSummary(progressState))
-        
+
         const resumeChoice = await promptResume()
         if (resumeChoice) {
           commitsToAnalyze = ProgressTracker.getRemainingCommits(progressState)
           analyzedCommits = progressState.analyzedCommits
           processedCommits = progressState.processedCommits
-          
+
           // Use the output file from the previous session
           options.output = progressState.outputFile
-          
-          console.log(`\n▶️  Resuming with ${commitsToAnalyze.length} remaining commits...`)
-          console.log(`📊 Previous progress: ${processedCommits.length}/${progressState.totalCommits.length} commits processed`)
+
+          console.log(
+            `\n▶️  Resuming with ${commitsToAnalyze.length} remaining commits...`,
+          )
+          console.log(
+            `📊 Previous progress: ${processedCommits.length}/${progressState.totalCommits.length} commits processed`,
+          )
           if (options.verbose) {
-            console.log(`   Debug: analyzedCommits.length = ${analyzedCommits.length}`)
-            console.log(`   Debug: processedCommits.length = ${processedCommits.length}`)
-            console.log(`   Debug: commitsToAnalyze.length = ${commitsToAnalyze.length}`)
+            console.log(
+              `   Debug: analyzedCommits.length = ${analyzedCommits.length}`,
+            )
+            console.log(
+              `   Debug: processedCommits.length = ${processedCommits.length}`,
+            )
+            console.log(
+              `   Debug: commitsToAnalyze.length = ${commitsToAnalyze.length}`,
+            )
           }
         } else {
           ProgressTracker.clearProgress()
@@ -156,14 +189,17 @@ async function main(): Promise<void> {
       }
     }
 
-    const totalCommitsToProcess = processedCommits.length + commitsToAnalyze.length
-    console.log(`\nAnalyzing ${commitsToAnalyze.length} commits (${totalCommitsToProcess} total)...`)
+    const totalCommitsToProcess =
+      processedCommits.length + commitsToAnalyze.length
+    console.log(
+      `\nAnalyzing ${commitsToAnalyze.length} commits (${totalCommitsToProcess} total)...`,
+    )
 
     let failedCommits = 0
 
     // Keep track of all commits for checkpoint
     const allCommitsToAnalyze = [...processedCommits, ...commitsToAnalyze]
-    
+
     for (const [index, hash] of commitsToAnalyze.entries()) {
       const overallIndex = processedCommits.length + index + 1
       console.log(
@@ -190,33 +226,39 @@ async function main(): Promise<void> {
           ...commitInfo,
           analysis,
         })
-        
+
         processedCommits.push(hash)
-        
+
         // Save progress every 10 commits or on failure
-        if ((overallIndex % 10 === 0) || index === commitsToAnalyze.length - 1) {
+        if (overallIndex % 10 === 0 || index === commitsToAnalyze.length - 1) {
           ProgressTracker.saveProgress(
             allCommitsToAnalyze,
             processedCommits,
             analyzedCommits,
             options.output!,
           )
-          console.log(`  💾 Progress saved (${overallIndex}/${totalCommitsToProcess})`)
+          console.log(
+            `  💾 Progress saved (${overallIndex}/${totalCommitsToProcess})`,
+          )
           if (options.verbose) {
-            console.log(`     Debug: Saved ${processedCommits.length} processed, ${analyzedCommits.length} analyzed`)
+            console.log(
+              `     Debug: Saved ${processedCommits.length} processed, ${analyzedCommits.length} analyzed`,
+            )
           }
         }
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error"
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error"
         console.error(`  ❌ Failed: ${errorMessage}`)
         failedCommits++
         processedCommits.push(hash)
-        
+
         // Check if this was a rate limit error and provide helpful messaging
-        const isRateLimitError = errorMessage.includes("quota exceeded") || 
-                                errorMessage.includes("rate limit") || 
-                                errorMessage.includes("429")
-        
+        const isRateLimitError =
+          errorMessage.includes("quota exceeded") ||
+          errorMessage.includes("rate limit") ||
+          errorMessage.includes("429")
+
         // Save progress on failure
         ProgressTracker.saveProgress(
           allCommitsToAnalyze,
@@ -225,31 +267,43 @@ async function main(): Promise<void> {
           options.output!,
         )
         console.log(`  💾 Progress saved after failure`)
-        
+
         // Provide specific guidance based on error type
         if (isRateLimitError) {
           console.error(`\n⛔ Stopping due to rate limit/quota exceeded`)
           console.log(`💡 Suggestions:`)
-          console.log(`   • Wait for quota to reset (daily limits typically reset at midnight Pacific Time)`)
-          console.log(`   • Switch to a different model: --model claude or --model codex`)
+          console.log(
+            `   • Wait for quota to reset (daily limits typically reset at midnight Pacific Time)`,
+          )
+          console.log(
+            `   • Switch to a different model: --model claude or --model codex`,
+          )
           console.log(`   • Resume later with: --resume`)
         } else {
-          console.error(`\n⛔ Stopping due to failure (after ${LLMService.getMaxRetries()} retry attempts)`)
+          console.error(
+            `\n⛔ Stopping due to failure (after ${LLMService.getMaxRetries()} retry attempts)`,
+          )
           console.log(`💡 Suggestions:`)
           console.log(`   • Check your LLM model configuration and credentials`)
-          console.log(`   • Run with --verbose flag for detailed error information`)
+          console.log(
+            `   • Run with --verbose flag for detailed error information`,
+          )
           console.log(`   • Resume later with: --resume`)
         }
-        
-        console.log(`✅ Successfully analyzed ${analyzedCommits.length} commits before failure`)
-        console.log(`📁 Progress saved. Use --resume to continue from commit ${overallIndex + 1}`)
-        
+
+        console.log(
+          `✅ Successfully analyzed ${analyzedCommits.length} commits before failure`,
+        )
+        console.log(
+          `📁 Progress saved. Use --resume to continue from commit ${overallIndex + 1}`,
+        )
+
         // Export what we have so far
         if (analyzedCommits.length > 0) {
           CSVService.exportToFile(analyzedCommits, options.output!)
           console.log(`📊 Partial results exported to ${options.output}`)
         }
-        
+
         process.exit(1)
       }
     }
@@ -263,42 +317,58 @@ async function main(): Promise<void> {
     console.log(
       `Successfully analyzed ${analyzedCommits.length}/${totalCommitsToProcess} commits`,
     )
-    
+
     if (failedCommits > 0) {
-      console.log(`⚠️  Failed to analyze ${failedCommits} commits (see errors above)`)
+      console.log(
+        `⚠️  Failed to analyze ${failedCommits} commits (see errors above)`,
+      )
     }
-    
+
     // Generate report if --report flag is provided
     if (options.report) {
       console.log("\nGenerating condensed markdown report...")
-      
+
       // Determine report output filename
       let reportOutput: string
-      if (options.output!.endsWith('.csv')) {
-        reportOutput = options.output!.replace('.csv', '.md')
+      if (options.output!.endsWith(".csv")) {
+        reportOutput = options.output!.replace(".csv", ".md")
       } else {
-        reportOutput = options.output! + '.md'
+        reportOutput = options.output! + ".md"
       }
-      
+
       // Handle default case - if output is commits.csv, make report report.md
-      if (reportOutput.endsWith('commits.md')) {
-        reportOutput = reportOutput.replace('commits.md', 'report.md')
+      if (reportOutput.endsWith("commits.md")) {
+        reportOutput = reportOutput.replace("commits.md", "report.md")
       }
-      
+
       // If output directory is specified but report output is just a filename, use the output directory
-      if (options.outputDir && !reportOutput.includes('/') && !reportOutput.includes('\\')) {
-        reportOutput = CLIService.resolveOutputPath(reportOutput.split('/').pop() || reportOutput, options.outputDir)
+      if (
+        options.outputDir &&
+        !reportOutput.includes("/") &&
+        !reportOutput.includes("\\")
+      ) {
+        reportOutput = CLIService.resolveOutputPath(
+          reportOutput.split("/").pop() || reportOutput,
+          options.outputDir,
+        )
       }
-      
+
       try {
-        await MarkdownReportGenerator.generateReport(options.output!, reportOutput)
+        await MarkdownReportGenerator.generateReport(
+          options.output!,
+          reportOutput,
+        )
         console.log(`📊 Report generated: ${reportOutput}`)
       } catch (error) {
-        console.error(`⚠️  Failed to generate report: ${error instanceof Error ? error.message : "Unknown error"}`)
-        console.log("CSV analysis was successful, but report generation failed.")
+        console.error(
+          `⚠️  Failed to generate report: ${error instanceof Error ? error.message : "Unknown error"}`,
+        )
+        console.log(
+          "CSV analysis was successful, but report generation failed.",
+        )
       }
     }
-    
+
     // Clear checkpoint on successful completion
     ProgressTracker.clearProgress()
     console.log("✓ Progress checkpoint cleared (analysis complete)")
@@ -323,4 +393,3 @@ async function main(): Promise<void> {
 if (require.main === module) {
   main()
 }
-
