@@ -10,6 +10,7 @@ export interface CLIOptions {
   useDefaults: boolean
   resume?: boolean
   clear?: boolean
+  model?: string
 }
 
 export class CLIService {
@@ -42,6 +43,10 @@ export class CLIService {
         "-c, --clear",
         "Clear any existing progress checkpoint",
       )
+      .option(
+        "-m, --model <model>",
+        "LLM model to use (claude, gemini, codex)",
+      )
       .argument(
         "[commits...]",
         "Commit hashes to analyze (if none provided, uses current user's commits)",
@@ -71,6 +76,7 @@ export class CLIService {
       useDefaults,
       resume: options.resume,
       clear: options.clear,
+      model: options.model,
     }
   }
 
