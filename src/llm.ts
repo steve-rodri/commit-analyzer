@@ -135,7 +135,7 @@ export class LLMService {
           })
         }
 
-        return this.parseResponse(output)
+        return this.parseResponse(output, currentModel)
       } catch (error) {
         lastError = error instanceof Error ? error : new Error("Unknown error")
         
@@ -310,27 +310,52 @@ Format as JSON:
     return basePrompt
   }
 
-  private static parseResponse(response: string): LLMAnalysis {
+  private static parseResponse(response: string, model?: string): LLMAnalysis {
     try {
       const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/)
       if (!jsonMatch) {
         throw new Error("No JSON block found in response")
       }
 
-      const parsed = JSON.parse(jsonMatch[1])
+      let jsonString = jsonMatch[1].trim()
+      
+      // Apply codex-specific JSON cleaning
+      if (model === 'codex') {
+        // Fix escaped quotes and newlines that codex produces when using -q flag
+        jsonString = jsonString.replace(/\\"/g, '"').replace(/\\n/g, '\n')
+        
+        // If the JSON starts with a backslash-n, remove it
+        if (jsonString.startsWith('\\n')) {
+          jsonString = jsonString.substring(2)
+        }
+      }
+      
+      const parsed = JSON.parse(jsonString)
 
-      if (!this.isValidCategory(parsed.category)) {
-        throw new Error(`Invalid category: ${parsed.category}`)
+      // Normalize field names for codex (which uses uppercase)
+      let category = parsed.category
+      let summary = parsed.summary  
+      let description = parsed.description
+      
+      if (model === 'codex') {
+        // Codex uses uppercase field names, normalize to lowercase
+        category = category || parsed.Category
+        summary = summary || parsed.Summary
+        description = description || parsed.Description
       }
 
-      if (!parsed.summary || !parsed.description) {
+      if (!this.isValidCategory(category)) {
+        throw new Error(`Invalid category: ${category}`)
+      }
+
+      if (!summary || !description) {
         throw new Error("Missing required fields in response")
       }
 
       return {
-        category: parsed.category,
-        summary: parsed.summary.substring(0, 80),
-        description: parsed.description,
+        category: category,
+        summary: summary.substring(0, 80),
+        description: description,
       }
     } catch (error) {
       // Log the raw response for debugging
@@ -343,6 +368,16 @@ Format as JSON:
       const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/)
       if (jsonMatch) {
         console.log(`  - Extracted JSON block: ${jsonMatch[1]}`)
+        
+        // Show the cleaned version for codex only
+        if (model === 'codex') {
+          let cleanedJson = jsonMatch[1].trim()
+          cleanedJson = cleanedJson.replace(/\\"/g, '"').replace(/\\n/g, '\n')
+          if (cleanedJson.startsWith('\\n')) {
+            cleanedJson = cleanedJson.substring(2)
+          }
+          console.log(`  - Codex-cleaned JSON block: ${cleanedJson}`)
+        }
       }
       
       throw new Error(
