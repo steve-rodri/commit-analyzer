@@ -116,12 +116,24 @@ export class LLMService {
 
     for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
       try {
-        const output = execSync(currentModelCommand, {
-          input: prompt,
-          encoding: "utf8",
-          stdio: ["pipe", "pipe", "pipe"],
-          timeout: 60000,
-        })
+        let output: string
+        
+        if (currentModel === 'codex') {
+          // Codex -q requires prompt as command line argument, not stdin
+          output = execSync(`codex -q "${prompt.replace(/"/g, '\\"')}"`, {
+            encoding: "utf8",
+            stdio: ["pipe", "pipe", "pipe"],
+            timeout: 60000,
+          })
+        } else {
+          // Other models use stdin
+          output = execSync(currentModelCommand, {
+            input: prompt,
+            encoding: "utf8",
+            stdio: ["pipe", "pipe", "pipe"],
+            timeout: 60000,
+          })
+        }
 
         return this.parseResponse(output)
       } catch (error) {
