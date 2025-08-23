@@ -27,7 +27,7 @@ export class CLIService {
       .description(
         "Analyze user authored git commits and generate rich commit descriptions and stakeholder reports from them.",
       )
-      .version("1.0.1")
+      .version("1.0.2")
       .option("-o, --output <file>", "Output CSV file (default: commits.csv)")
       .option(
         "--output-dir <dir>",
