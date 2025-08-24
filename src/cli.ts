@@ -1,6 +1,6 @@
 import { readFileSync, mkdirSync } from "fs"
 import { Command } from "commander"
-import { join, dirname } from "path"
+import { join } from "path"
 
 export interface CLIOptions {
   output?: string
