@@ -19,6 +19,9 @@ export interface CLIOptions {
 }
 
 export class CLIService {
+  private static readonly DEFAULT_OUTPUT_FILE = "commits.csv"
+  private static readonly DEFAULT_VERSION = "1.0.3"
+
   static parseArguments(): CLIOptions {
     const program = new Command()
 
@@ -27,8 +30,8 @@ export class CLIService {
       .description(
         "Analyze user authored git commits and generate rich commit descriptions and stakeholder reports from them.",
       )
-      .version("1.0.3")
-      .option("-o, --output <file>", "Output CSV file (default: commits.csv)")
+      .version(this.DEFAULT_VERSION)
+      .option("-o, --output <file>", `Output CSV file (default: ${this.DEFAULT_OUTPUT_FILE})`)
       .option(
         "--output-dir <dir>",
         "Output directory for CSV and report files (default: current directory)",
@@ -70,21 +73,10 @@ export class CLIService {
     const options = program.opts()
     const args = program.args
 
-    let commits: string[] = []
-    let useDefaults = false
-
-    if (options.file) {
-      commits = this.readCommitsFromFile(options.file)
-    } else if (args.length > 0) {
-      commits = args
-    } else {
-      useDefaults = true
-    }
+    const { commits, useDefaults } = this.determineCommitsToAnalyze(options, args)
 
     return {
-      output:
-        options.output ||
-        CLIService.resolveOutputPath("commits.csv", options.outputDir),
+      output: this.determineOutputPath(options.output, options.outputDir),
       outputDir: options.outputDir,
       file: options.file,
       commits,
@@ -100,6 +92,30 @@ export class CLIService {
     }
   }
 
+  private static determineCommitsToAnalyze(
+    options: { file?: string },
+    args: string[],
+  ): { commits: string[]; useDefaults: boolean } {
+    let commits: string[] = []
+    let useDefaults = false
+
+    if (options.file) {
+      commits = this.readCommitsFromFile(options.file)
+    } else if (args.length > 0) {
+      commits = args
+    } else {
+      useDefaults = true
+    }
+
+    return { commits, useDefaults }
+  }
+
+  private static determineOutputPath(outputOption?: string, outputDir?: string): string {
+    return (
+      outputOption || CLIService.resolveOutputPath(this.DEFAULT_OUTPUT_FILE, outputDir)
+    )
+  }
+
   private static readCommitsFromFile(filename: string): string[] {
     try {
       const content = readFileSync(filename, "utf8")
@@ -109,7 +125,7 @@ export class CLIService {
         .filter((line) => line.length > 0)
     } catch (error) {
       throw new Error(
-        `Failed to read commits from file ${filename}: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Failed to read commits from file ${filename}: ${this.getErrorMessage(error)}`,
       )
     }
   }
@@ -124,7 +140,7 @@ export class CLIService {
         mkdirSync(outputDir, { recursive: true })
       } catch (error) {
         throw new Error(
-          `Failed to create output directory ${outputDir}: ${error instanceof Error ? error.message : "Unknown error"}`,
+          `Failed to create output directory ${outputDir}: ${this.getErrorMessage(error)}`,
         )
       }
       return join(outputDir, filename)
@@ -166,5 +182,9 @@ Examples:
   commit-analyzer --input-csv data.csv --report      # Skip analysis, generate report from existing CSV
   commit-analyzer --report -o custom-report.md       # Analyze commits, generate CSV, then generate custom report
     `)
+  }
+
+  private static getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : "Unknown error"
   }
 }
