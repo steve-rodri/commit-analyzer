@@ -12,6 +12,7 @@ import { ReportHandler } from "./report-handler"
 import { GitService } from "./git"
 import { getCliOptions } from "./get-cli-options"
 import { AnalyzedCommit } from "./types"
+import { ConsoleUtils } from "./console-utils"
 
 async function main(): Promise<void> {
   try {
@@ -63,14 +64,14 @@ async function main(): Promise<void> {
     }
 
     CSVService.exportToFile(analyzedCommits, options.output!)
-    console.log(`\n✅ Analysis complete! Results exported to ${options.output}`)
-    console.log(
+    ConsoleUtils.logSection(`Analysis complete! Results exported to ${options.output}`)
+    ConsoleUtils.logSuccess(
       `Successfully analyzed ${analyzedCommits.length}/${allCommitsToAnalyze.length} commits`,
     )
 
     if (failedCommits > 0) {
-      console.log(
-        `⚠️  Failed to analyze ${failedCommits} commits (see errors above)`,
+      ConsoleUtils.logWarning(
+        `Failed to analyze ${failedCommits} commits (see errors above)`,
       )
     }
 
@@ -79,7 +80,7 @@ async function main(): Promise<void> {
 
     // Clear checkpoint on successful completion
     ProgressTracker.clearProgress()
-    console.log("✓ Progress checkpoint cleared (analysis complete)")
+    ConsoleUtils.logSuccess("Progress checkpoint cleared (analysis complete)")
 
     displayAnalysisSummary(analyzedCommits)
   } catch (error) {
@@ -96,9 +97,9 @@ function displayAnalysisSummary(analyzedCommits: AnalyzedCommit[]): void {
     {} as Record<string, number>,
   )
 
-  console.log("\nSummary by category:")
+  ConsoleUtils.logSection("Summary by category:")
   Object.entries(summary).forEach(([category, count]) => {
-    console.log(`  ${category}: ${count} commits`)
+    ConsoleUtils.logInfo(`${category}: ${count} commits`)
   })
 }
 

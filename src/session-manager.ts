@@ -4,6 +4,7 @@ import { ProgressTracker } from "./progress"
 import { ValidationError } from "./errors"
 import { CLIOptions } from "./cli"
 import { AnalyzedCommit } from "./types"
+import { ConsoleUtils } from "./console-utils"
 
 export class SessionManager {
   static async promptResume(): Promise<boolean> {
@@ -37,7 +38,7 @@ export class SessionManager {
     if (options.resume && ProgressTracker.hasProgress()) {
       const progressState = ProgressTracker.loadProgress()
       if (progressState) {
-        console.log("📂 Found previous session checkpoint")
+        ConsoleUtils.logFile("Found previous session checkpoint")
         console.log(ProgressTracker.formatProgressSummary(progressState))
 
         const resumeChoice = await this.promptResume()
@@ -49,30 +50,33 @@ export class SessionManager {
           // Use the output file from the previous session
           options.output = progressState.outputFile
 
-          console.log(
-            `\n▶️  Resuming with ${commitsToAnalyze.length} remaining commits...`,
+          ConsoleUtils.logProgress(
+            `Resuming with ${commitsToAnalyze.length} remaining commits...`,
           )
-          console.log(
-            `📊 Previous progress: ${processedCommits.length}/${progressState.totalCommits.length} commits processed`,
+          ConsoleUtils.logReport(
+            `Previous progress: ${processedCommits.length}/${progressState.totalCommits.length} commits processed`,
           )
           if (options.verbose) {
-            console.log(
-              `   Debug: analyzedCommits.length = ${analyzedCommits.length}`,
+            ConsoleUtils.logIndented(
+              `Debug: analyzedCommits.length = ${analyzedCommits.length}`,
+              2,
             )
-            console.log(
-              `   Debug: processedCommits.length = ${processedCommits.length}`,
+            ConsoleUtils.logIndented(
+              `Debug: processedCommits.length = ${processedCommits.length}`,
+              2,
             )
-            console.log(
-              `   Debug: commitsToAnalyze.length = ${commitsToAnalyze.length}`,
+            ConsoleUtils.logIndented(
+              `Debug: commitsToAnalyze.length = ${commitsToAnalyze.length}`,
+              2,
             )
           }
         } else {
           ProgressTracker.clearProgress()
-          console.log("Starting fresh analysis...")
+          ConsoleUtils.logInfo("Starting fresh analysis...")
         }
       }
     } else if (options.resume && !ProgressTracker.hasProgress()) {
-      console.log("No previous checkpoint found. Starting fresh...")
+      ConsoleUtils.logInfo("No previous checkpoint found. Starting fresh...")
     }
 
     return { commitsToAnalyze, analyzedCommits, processedCommits }
@@ -82,9 +86,9 @@ export class SessionManager {
     if (!options.clear) return false
     if (ProgressTracker.hasProgress()) {
       ProgressTracker.clearProgress()
-      console.log("✓ Progress checkpoint cleared")
+      ConsoleUtils.logSuccess("Progress checkpoint cleared")
     } else {
-      console.log("No progress checkpoint to clear")
+      ConsoleUtils.logInfo("No progress checkpoint to clear")
     }
     return !options.resume
   }
@@ -110,10 +114,10 @@ export class SessionManager {
   }
 
   private static getUserAuthoredCommitsWithLogging(options: CLIOptions): string[] {
-    console.log("No commits specified, analyzing your authored commits...")
+    ConsoleUtils.logInfo("No commits specified, analyzing your authored commits...")
     const userEmail = GitService.getCurrentUserEmail()
     const userName = GitService.getCurrentUserName()
-    console.log(`Finding commits by ${userName} (${userEmail})`)
+    ConsoleUtils.logInfo(`Finding commits by ${userName} (${userEmail})`)
 
     const commits = GitService.getUserAuthoredCommits(options.author, options.limit)
 
@@ -124,7 +128,7 @@ export class SessionManager {
     }
 
     const limitText = options.limit ? ` (limited to ${options.limit})` : ""
-    console.log(`Found ${commits.length} commits${limitText}`)
+    ConsoleUtils.logSuccess(`Found ${commits.length} commits${limitText}`)
     
     return commits
   }

@@ -1,6 +1,7 @@
 import { readFileSync, mkdirSync } from "fs"
 import { Command } from "commander"
 import { join } from "path"
+import { getErrorMessage } from "./utils"
 
 export interface CLIOptions {
   output?: string
@@ -125,7 +126,7 @@ export class CLIService {
         .filter((line) => line.length > 0)
     } catch (error) {
       throw new Error(
-        `Failed to read commits from file ${filename}: ${this.getErrorMessage(error)}`,
+        `Failed to read commits from file ${filename}: ${getErrorMessage(error)}`,
       )
     }
   }
@@ -140,7 +141,7 @@ export class CLIService {
         mkdirSync(outputDir, { recursive: true })
       } catch (error) {
         throw new Error(
-          `Failed to create output directory ${outputDir}: ${this.getErrorMessage(error)}`,
+          `Failed to create output directory ${outputDir}: ${getErrorMessage(error)}`,
         )
       }
       return join(outputDir, filename)
@@ -184,7 +185,4 @@ Examples:
     `)
   }
 
-  private static getErrorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : "Unknown error"
-  }
 }

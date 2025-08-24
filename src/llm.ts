@@ -1,5 +1,6 @@
 import { execSync } from "child_process"
 import { CommitInfo, LLMAnalysis } from "./types"
+import { sleep } from "./utils"
 
 export class LLMService {
   private static readonly SUPPORTED_MODELS = ["claude", "gemini", "codex"]
@@ -146,9 +147,6 @@ export class LLMService {
     )
   }
 
-  private static sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms))
-  }
 
   private static logPromptInfo(prompt: string, model: string): void {
     if (this.isClaudeModel(model)) {
@@ -297,7 +295,7 @@ export class LLMService {
       `  - Attempt ${attempt}/${this.MAX_RETRIES} failed for commit ${commit.hash.substring(0, 8)}. Retrying in ${delay / 1000}s...`,
     )
 
-    await this.sleep(delay)
+    await sleep(delay)
   }
 
   static getMaxRetries(): number {

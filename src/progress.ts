@@ -1,5 +1,6 @@
 import { writeFileSync, readFileSync, existsSync, unlinkSync } from "fs"
 import { AnalyzedCommit } from "./types"
+import { calculatePercentage } from "./utils"
 
 interface ProgressState {
   totalCommits: string[]
@@ -12,6 +13,8 @@ interface ProgressState {
 
 export class ProgressTracker {
   private static readonly CHECKPOINT_FILE = ".commit-analyzer-progress.json"
+  private static readonly FILE_ENCODING = "utf8"
+  private static readonly JSON_INDENT = 2
 
   static saveProgress(
     totalCommits: string[],
@@ -19,13 +22,25 @@ export class ProgressTracker {
     analyzedCommits: AnalyzedCommit[],
     outputFile: string,
   ): void {
-    let startTime = new Date().toISOString()
-    const existingState = this.loadProgress()
-    if (existingState) {
-      startTime = existingState.startTime
-    }
+    const state = this.createProgressState(
+      totalCommits,
+      processedCommits,
+      analyzedCommits,
+      outputFile,
+    )
+    this.writeProgressToFile(state)
+  }
 
-    const state: ProgressState = {
+  private static createProgressState(
+    totalCommits: string[],
+    processedCommits: string[],
+    analyzedCommits: AnalyzedCommit[],
+    outputFile: string,
+  ): ProgressState {
+    const existingState = this.loadProgress()
+    const startTime = existingState?.startTime || new Date().toISOString()
+
+    return {
       totalCommits,
       processedCommits,
       analyzedCommits,
@@ -33,17 +48,24 @@ export class ProgressTracker {
       startTime,
       outputFile,
     }
+  }
 
-    writeFileSync(this.CHECKPOINT_FILE, JSON.stringify(state, null, 2))
+  private static writeProgressToFile(state: ProgressState): void {
+    const content = JSON.stringify(state, null, this.JSON_INDENT)
+    writeFileSync(this.CHECKPOINT_FILE, content)
   }
 
   static loadProgress(): ProgressState | null {
-    if (!existsSync(this.CHECKPOINT_FILE)) {
+    if (!this.hasProgress()) {
       return null
     }
 
+    return this.readProgressFromFile()
+  }
+
+  private static readProgressFromFile(): ProgressState | null {
     try {
-      const content = readFileSync(this.CHECKPOINT_FILE, "utf8")
+      const content = readFileSync(this.CHECKPOINT_FILE, this.FILE_ENCODING)
       return JSON.parse(content)
     } catch (error) {
       console.error("Failed to load progress file:", error)
@@ -56,7 +78,7 @@ export class ProgressTracker {
   }
 
   static clearProgress(): void {
-    if (existsSync(this.CHECKPOINT_FILE)) {
+    if (this.hasProgress()) {
       unlinkSync(this.CHECKPOINT_FILE)
     }
   }
@@ -67,18 +89,29 @@ export class ProgressTracker {
   }
 
   static formatProgressSummary(state: ProgressState): string {
-    const processed = state.processedCommits.length
-    const total = state.totalCommits.length
-    const remaining = total - processed
-    const percentComplete = Math.round((processed / total) * 100)
-
+    const stats = this.calculateProgressStats(state)
+    
     return `
       Previous session:
       - Started: ${new Date(state.startTime).toLocaleString()}
-      - Progress: ${processed}/${total} commits (${percentComplete}%)
-      - Remaining: ${remaining} commits
+      - Progress: ${stats.processed}/${stats.total} commits (${stats.percentComplete}%)
+      - Remaining: ${stats.remaining} commits
       - Output file: ${state.outputFile}
     `.trim()
+  }
+
+  private static calculateProgressStats(state: ProgressState): {
+    processed: number
+    total: number
+    remaining: number
+    percentComplete: number
+  } {
+    const processed = state.processedCommits.length
+    const total = state.totalCommits.length
+    const remaining = total - processed
+    const percentComplete = calculatePercentage(processed, total)
+
+    return { processed, total, remaining, percentComplete }
   }
 }
 

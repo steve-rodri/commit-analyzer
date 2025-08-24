@@ -1,11 +1,12 @@
 import { CLIService, CLIOptions } from "./cli"
 import { MarkdownReportGenerator } from "./report-generator"
+import { ConsoleUtils } from "./console-utils"
 
 export class ReportHandler {
   static async generateReportIfRequested(options: CLIOptions): Promise<void> {
     if (!options.report) return
 
-    console.log("\nGenerating condensed markdown report...")
+    ConsoleUtils.logSection("Generating condensed markdown report...")
 
     const reportOutput = this.determineReportOutputPath(options)
 
@@ -14,12 +15,12 @@ export class ReportHandler {
         options.output!,
         reportOutput,
       )
-      console.log(`📊 Report generated: ${reportOutput}`)
+      ConsoleUtils.logReport(`Report generated: ${reportOutput}`)
     } catch (error) {
-      console.error(
-        `⚠️  Failed to generate report: ${error instanceof Error ? error.message : "Unknown error"}`,
+      ConsoleUtils.logError(
+        `Failed to generate report: ${error instanceof Error ? error.message : "Unknown error"}`,
       )
-      console.log(
+      ConsoleUtils.logInfo(
         "CSV analysis was successful, but report generation failed.",
       )
     }

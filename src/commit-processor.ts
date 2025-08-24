@@ -4,6 +4,7 @@ import { CSVService } from "./csv"
 import { ProgressTracker } from "./progress"
 import { CLIOptions } from "./cli"
 import { AnalyzedCommit } from "./types"
+import { ConsoleUtils } from "./console-utils"
 
 export class CommitProcessor {
   private static readonly PROGRESS_SAVE_INTERVAL = 10
@@ -24,20 +25,20 @@ export class CommitProcessor {
   }): Promise<{ analyzedCommits: AnalyzedCommit[]; failedCommits: number }> {
     const totalCommitsToProcess =
       processedCommits.length + commitsToAnalyze.length
-    console.log(
-      `\nAnalyzing ${commitsToAnalyze.length} commits (${totalCommitsToProcess} total)...`,
+    ConsoleUtils.logSection(
+      `Analyzing ${commitsToAnalyze.length} commits (${totalCommitsToProcess} total)...`,
     )
 
     let failedCommits = 0
 
     for (const [index, hash] of commitsToAnalyze.entries()) {
       const overallIndex = processedCommits.length + index + 1
-      console.log(
-        `\n[${overallIndex}/${totalCommitsToProcess}] Processing commit: ${hash.substring(0, 8)}`,
+      ConsoleUtils.logSection(
+        `[${overallIndex}/${totalCommitsToProcess}] Processing commit: ${hash.substring(0, 8)}`,
       )
 
       if (!GitService.validateCommitHash(hash)) {
-        console.error(`  ❌ Invalid commit hash: ${hash}`)
+        ConsoleUtils.logError(`Invalid commit hash: ${hash}`)
         failedCommits++
         processedCommits.push(hash)
         continue
@@ -45,11 +46,11 @@ export class CommitProcessor {
 
       try {
         const commitInfo = await GitService.getCommitInfo(hash)
-        console.log(`  ✓ Extracted commit info`)
+        ConsoleUtils.logSuccess(`Extracted commit info`)
 
         const analysis = await LLMService.analyzeCommit(commitInfo)
-        console.log(
-          `  ✓ Analyzed as "${analysis.category}": ${analysis.summary}`,
+        ConsoleUtils.logSuccess(
+          `Analyzed as "${analysis.category}": ${analysis.summary}`,
         )
 
         analyzedCommits.push({
@@ -67,18 +68,19 @@ export class CommitProcessor {
             analyzedCommits,
             options.output!,
           )
-          console.log(
-            `  💾 Progress saved (${overallIndex}/${totalCommitsToProcess})`,
+          ConsoleUtils.logSave(
+            `Progress saved (${overallIndex}/${totalCommitsToProcess})`,
           )
           if (options.verbose) {
-            console.log(
-              `     Debug: Saved ${processedCommits.length} processed, ${analyzedCommits.length} analyzed`,
+            ConsoleUtils.logIndented(
+              `Debug: Saved ${processedCommits.length} processed, ${analyzedCommits.length} analyzed`,
+              3,
             )
           }
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error"
-        console.error(`  ❌ Failed: ${errorMessage}`)
+        ConsoleUtils.logError(`Failed: ${errorMessage}`)
         failedCommits++
         processedCommits.push(hash)
 
@@ -114,14 +116,14 @@ export class CommitProcessor {
       analyzedCommits,
       options.output!,
     )
-    console.log(`  💾 Progress saved after failure`)
+    ConsoleUtils.logSave(`Progress saved after failure`)
 
     this.displayErrorGuidance(isRateLimitError, analyzedCommits.length, overallIndex)
     
     // Export partial results if available
     if (analyzedCommits.length > 0) {
       CSVService.exportToFile(analyzedCommits, options.output!)
-      console.log(`📊 Partial results exported to ${options.output}`)
+      ConsoleUtils.logReport(`Partial results exported to ${options.output}`)
     }
 
     process.exit(1)
@@ -141,29 +143,32 @@ export class CommitProcessor {
     overallIndex: number,
   ): void {
     if (isRateLimitError) {
-      console.error(`\n⛔ Stopping due to rate limit/quota exceeded`)
-      console.log(`💡 Suggestions:`)
-      console.log(
-        `   • Wait for quota to reset (daily limits typically reset at midnight Pacific Time)`,
+      ConsoleUtils.logError(`Stopping due to rate limit/quota exceeded`)
+      ConsoleUtils.logInfo(`Suggestions:`)
+      ConsoleUtils.logIndented(
+        `• Wait for quota to reset (daily limits typically reset at midnight Pacific Time)`,
+        2,
       )
-      console.log(
-        `   • Switch to a different model: --model claude or --model codex`,
+      ConsoleUtils.logIndented(
+        `• Switch to a different model: --model claude or --model codex`,
+        2,
       )
-      console.log(`   • Resume later with: --resume`)
+      ConsoleUtils.logIndented(`• Resume later with: --resume`, 2)
     } else {
-      console.error(
-        `\n⛔ Stopping due to failure (after ${LLMService.getMaxRetries()} retry attempts)`,
+      ConsoleUtils.logError(
+        `Stopping due to failure (after ${LLMService.getMaxRetries()} retry attempts)`,
       )
-      console.log(`💡 Suggestions:`)
-      console.log(`   • Check your LLM model configuration and credentials`)
-      console.log(
-        `   • Run with --verbose flag for detailed error information`,
+      ConsoleUtils.logInfo(`Suggestions:`)
+      ConsoleUtils.logIndented(`• Check your LLM model configuration and credentials`, 2)
+      ConsoleUtils.logIndented(
+        `• Run with --verbose flag for detailed error information`,
+        2,
       )
-      console.log(`   • Resume later with: --resume`)
+      ConsoleUtils.logIndented(`• Resume later with: --resume`, 2)
     }
 
-    console.log(`✅ Successfully analyzed ${analyzedCount} commits before failure`)
-    console.log(`📁 Progress saved. Use --resume to continue from commit ${overallIndex + 1}`)
+    ConsoleUtils.logSuccess(`Successfully analyzed ${analyzedCount} commits before failure`)
+    ConsoleUtils.logFile(`Progress saved. Use --resume to continue from commit ${overallIndex + 1}`)
   }
 }
 

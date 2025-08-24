@@ -1,5 +1,6 @@
 import { execSync } from "child_process"
 import { CommitInfo } from "./types"
+import { getErrorMessage } from "./utils"
 
 export class GitService {
   private static readonly LARGE_DIFF_BUFFER = 50 * 1024 * 1024 // 50MB buffer for large diffs
@@ -33,7 +34,7 @@ export class GitService {
       }
     } catch (error) {
       throw new Error(
-        `Failed to get commit info for ${hash}: ${this.getErrorMessage(error)}`,
+        `Failed to get commit info for ${hash}: ${getErrorMessage(error)}`,
       )
     }
   }
@@ -61,7 +62,7 @@ export class GitService {
       return execSync("git config user.email", this.EXEC_OPTIONS).trim()
     } catch (error) {
       throw new Error(
-        `Failed to get current user email: ${this.getErrorMessage(error)}`,
+        `Failed to get current user email: ${getErrorMessage(error)}`,
       )
     }
   }
@@ -71,7 +72,7 @@ export class GitService {
       return execSync("git config user.name", this.EXEC_OPTIONS).trim()
     } catch (error) {
       throw new Error(
-        `Failed to get current user name: ${this.getErrorMessage(error)}`,
+        `Failed to get current user name: ${getErrorMessage(error)}`,
       )
     }
   }
@@ -89,7 +90,7 @@ export class GitService {
       return this.parseCommitHashes(output)
     } catch (error) {
       throw new Error(
-        `Failed to get user authored commits: ${this.getErrorMessage(error)}`,
+        `Failed to get user authored commits: ${getErrorMessage(error)}`,
       )
     }
   }
@@ -101,8 +102,5 @@ export class GitService {
     return output.split("\n").filter((hash) => hash.length > 0)
   }
 
-  private static getErrorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : "Unknown error"
-  }
 }
 
