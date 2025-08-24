@@ -10,7 +10,7 @@ export class LLMService {
    */
   static detectAvailableModels(): string[] {
     const models = ["claude", "gemini", "codex"]
-    return models.filter((model) => {
+    const availableModels = models.filter((model) => {
       try {
         execSync(`command -v ${model}`, { stdio: "ignore" })
         return true
@@ -18,6 +18,12 @@ export class LLMService {
         return false
       }
     })
+    if (availableModels.length === 0) {
+      throw new Error(
+        "No supported LLM models found. Please install claude, gemini, or codex.",
+      )
+    }
+    return availableModels
   }
 
   /**
@@ -31,8 +37,8 @@ export class LLMService {
       )
     }
     // Default to sonnet if claude is available
-    if (available.includes('claude')) {
-      return 'claude --model sonnet'
+    if (available.includes("claude")) {
+      return "claude --model sonnet"
     }
     return available[0]
   }
@@ -66,12 +72,12 @@ export class LLMService {
    */
   static getModelCommand(): string {
     const model = this.getModel()
-    
+
     // Append -q flag for codex model
-    if (model === 'codex') {
-      return 'codex -q'
+    if (model === "codex") {
+      return "codex -q"
     }
-    
+
     return model
   }
   private static readonly MAX_RETRIES = parseInt(
@@ -91,11 +97,15 @@ export class LLMService {
   )
   // Claude-specific configuration with backward compatibility
   private static readonly CLAUDE_MAX_PROMPT_LENGTH = parseInt(
-    process.env.CLAUDE_MAX_PROMPT_LENGTH || process.env.LLM_MAX_PROMPT_LENGTH || "100000",
+    process.env.CLAUDE_MAX_PROMPT_LENGTH ||
+      process.env.LLM_MAX_PROMPT_LENGTH ||
+      "100000",
     10,
   )
   private static readonly CLAUDE_MAX_DIFF_LENGTH = parseInt(
-    process.env.CLAUDE_MAX_DIFF_LENGTH || process.env.LLM_MAX_DIFF_LENGTH || "80000",
+    process.env.CLAUDE_MAX_DIFF_LENGTH ||
+      process.env.LLM_MAX_DIFF_LENGTH ||
+      "80000",
     10,
   )
 
@@ -103,12 +113,14 @@ export class LLMService {
     const currentModel = this.getModel()
     const currentModelCommand = this.getModelCommand()
     const prompt = this.buildPrompt(commit.message, commit.diff, currentModel)
-    
+
     // Log prompt length for debugging - only for Claude models
     if (this.isClaudeModel(currentModel)) {
       console.log(`  - Prompt length: ${prompt.length} characters`)
       if (prompt.length > this.CLAUDE_MAX_PROMPT_LENGTH) {
-        console.log(`  - Warning: Prompt exceeds Claude max length (${this.CLAUDE_MAX_PROMPT_LENGTH})`)
+        console.log(
+          `  - Warning: Prompt exceeds Claude max length (${this.CLAUDE_MAX_PROMPT_LENGTH})`,
+        )
       }
     }
 
@@ -117,8 +129,8 @@ export class LLMService {
     for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
       try {
         let output: string
-        
-        if (currentModel === 'codex') {
+
+        if (currentModel === "codex") {
           // Codex -q requires prompt as command line argument, not stdin
           output = execSync(`codex -q "${prompt.replace(/"/g, '\\"')}"`, {
             encoding: "utf8",
@@ -138,58 +150,77 @@ export class LLMService {
         return this.parseResponse(output, currentModel)
       } catch (error) {
         lastError = error instanceof Error ? error : new Error("Unknown error")
-        
+
         // Check if this is a rate limit error
         const rateLimitInfo = this.isRateLimitError(error)
-        
+
         if (rateLimitInfo.isRateLimit) {
           // For rate limits, show user-friendly message immediately
-          const friendlyMessage = this.getRateLimitMessage(rateLimitInfo.service, rateLimitInfo.limitType)
+          const friendlyMessage = this.getRateLimitMessage(
+            rateLimitInfo.service,
+            rateLimitInfo.limitType,
+          )
           console.log(`  - ${friendlyMessage}`)
-          
+
           // Show detailed error info only in verbose mode
           if (this.verbose) {
-            console.log(`  - Verbose error details for commit ${commit.hash.substring(0, 8)}:`)
+            console.log(
+              `  - Verbose error details for commit ${commit.hash.substring(0, 8)}:`,
+            )
             console.log(`    Command: ${currentModelCommand}`)
             console.log(`    Error message: ${lastError.message}`)
             if (this.isClaudeModel(currentModel)) {
               console.log(`    Prompt length: ${prompt.length} characters`)
             }
-            
+
             // If it's an exec error, log additional details
-            if (error && typeof error === 'object' && 'stderr' in error) {
-              const execError = error as any
-              console.log(`    Exit code: ${execError.status || 'unknown'}`)
-              console.log(`    Signal: ${execError.signal || 'none'}`)
+            if (error && typeof error === "object" && "stderr" in error) {
+              const execError = error as {
+                status?: number
+                signal?: string
+                stderr?: string
+                stdout?: string
+              }
+              console.log(`    Exit code: ${execError.status || "unknown"}`)
+              console.log(`    Signal: ${execError.signal || "none"}`)
               if (execError.stderr) {
-                console.log(`    Stderr: ${execError.stderr.substring(0, 1000)}${execError.stderr.length > 1000 ? '...' : ''}`)
+                console.log(
+                  `    Stderr: ${execError.stderr.substring(0, 1000)}${execError.stderr.length > 1000 ? "..." : ""}`,
+                )
               }
             }
           }
-          
+
           // If it's a daily quota error, don't retry - fail immediately
           if (rateLimitInfo.limitType === "daily quota") {
             throw new Error(
-              `Daily quota exceeded for ${rateLimitInfo.service || 'LLM service'}. Retrying will not help until quota resets.`,
+              `Daily quota exceeded for ${rateLimitInfo.service || "LLM service"}. Retrying will not help until quota resets.`,
             )
           }
         } else {
           // For non-rate-limit errors, show detailed info based on verbose mode
           if (this.verbose) {
-            console.log(`  - Error details for commit ${commit.hash.substring(0, 8)}:`)
+            console.log(
+              `  - Error details for commit ${commit.hash.substring(0, 8)}:`,
+            )
             console.log(`    Command: ${currentModelCommand}`)
             console.log(`    Error message: ${lastError.message}`)
             if (this.isClaudeModel(currentModel)) {
               console.log(`    Prompt length: ${prompt.length} characters`)
             }
-            
+
             // If it's an exec error, log additional details
-            if (error && typeof error === 'object' && 'stderr' in error) {
-              const execError = error as any
-              console.log(`    Exit code: ${execError.status || 'unknown'}`)
-              console.log(`    Signal: ${execError.signal || 'none'}`)
-              console.log(`    Stderr: ${execError.stderr || 'none'}`)
-              console.log(`    Stdout: ${execError.stdout || 'none'}`)
+            if (error && typeof error === "object" && "stderr" in error) {
+              const execError = error as {
+                status?: number
+                signal?: string
+                stderr?: string
+                stdout?: string
+              }
+              console.log(`    Exit code: ${execError.status || "unknown"}`)
+              console.log(`    Signal: ${execError.signal || "none"}`)
+              console.log(`    Stderr: ${execError.stderr || "none"}`)
+              console.log(`    Stdout: ${execError.stdout || "none"}`)
             }
           } else {
             // In non-verbose mode, show concise error message
@@ -222,7 +253,6 @@ export class LLMService {
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
-
   static getMaxRetries(): number {
     return this.MAX_RETRIES
   }
@@ -232,81 +262,101 @@ export class LLMService {
    */
   private static isClaudeModel(model?: string): boolean {
     const currentModel = model || this.getModel()
-    return currentModel.toLowerCase().includes('claude')
+    return currentModel.toLowerCase().includes("claude")
   }
 
-  private static buildPrompt(commitMessage: string, diff: string, model: string): string {
+  private static buildPrompt(
+    commitMessage: string,
+    diff: string,
+    model: string,
+  ): string {
     // Only truncate for Claude models
     let truncatedDiff = diff
-    let diffTruncated = false
-    
-    if (this.isClaudeModel(model) && diff.length > this.CLAUDE_MAX_DIFF_LENGTH) {
-      truncatedDiff = diff.substring(0, this.CLAUDE_MAX_DIFF_LENGTH) + "\n\n[DIFF TRUNCATED - Original length: " + diff.length + " characters]"
-      diffTruncated = true
+    // Removed unused variable diffTruncated
+
+    if (
+      this.isClaudeModel(model) &&
+      diff.length > this.CLAUDE_MAX_DIFF_LENGTH
+    ) {
+      truncatedDiff =
+        diff.substring(0, this.CLAUDE_MAX_DIFF_LENGTH) +
+        "\n\n[DIFF TRUNCATED - Original length: " +
+        diff.length +
+        " characters]"
     }
-    
+
     const basePrompt = `Analyze this git commit and provide a categorization:
 
-COMMIT MESSAGE:
-${commitMessage}
+      COMMIT MESSAGE:
+      ${commitMessage}
 
-COMMIT DIFF:
-${truncatedDiff}
+      COMMIT DIFF:
+      ${truncatedDiff}
 
-Based on the commit message and code changes, categorize this commit as one of:
-- "tweak": Minor adjustments, bug fixes, small improvements
-- "feature": New functionality, major additions
-- "process": Build system, CI/CD, tooling, configuration changes
+      Based on the commit message and code changes, categorize this commit as one of:
+      - "tweak": Minor adjustments, bug fixes, small improvements
+      - "feature": New functionality, major additions
+      - "process": Build system, CI/CD, tooling, configuration changes
 
-Provide:
-1. Category: [tweak|feature|process]
-2. Summary: One-line description (max 80 chars)
-3. Description: Detailed explanation (2-3 sentences)
+      Provide:
+      1. Category: [tweak|feature|process]
+      2. Summary: One-line description (max 80 chars)
+      3. Description: Detailed explanation (2-3 sentences)
 
-Format as JSON:
-\`\`\`json
-{
-  "category": "...",
-  "summary": "...",
-  "description": "..."
-}
-\`\`\``
+      Format as JSON:
+      \`\`\`json
+      {
+        "category": "...",
+        "summary": "...",
+        "description": "..."
+      }
+      \`\`\``
 
     // Final length check - only for Claude models
-    if (this.isClaudeModel(model) && basePrompt.length > this.CLAUDE_MAX_PROMPT_LENGTH) {
+    if (
+      this.isClaudeModel(model) &&
+      basePrompt.length > this.CLAUDE_MAX_PROMPT_LENGTH
+    ) {
       // Further truncate the diff if needed
       const overhead = basePrompt.length - this.CLAUDE_MAX_PROMPT_LENGTH
-      const newDiffLength = Math.max(1000, this.CLAUDE_MAX_DIFF_LENGTH - overhead - 200) // Keep at least 1000 chars, subtract extra for safety
-      truncatedDiff = diff.substring(0, newDiffLength) + "\n\n[DIFF HEAVILY TRUNCATED - Original length: " + diff.length + " characters]"
-      
+      const newDiffLength = Math.max(
+        1000,
+        this.CLAUDE_MAX_DIFF_LENGTH - overhead - 200,
+      ) // Keep at least 1000 chars, subtract extra for safety
+      truncatedDiff =
+        diff.substring(0, newDiffLength) +
+        "\n\n[DIFF HEAVILY TRUNCATED - Original length: " +
+        diff.length +
+        " characters]"
+
       return `Analyze this git commit and provide a categorization:
 
-COMMIT MESSAGE:
-${commitMessage}
+      COMMIT MESSAGE:
+      ${commitMessage}
 
-COMMIT DIFF:
-${truncatedDiff}
+      COMMIT DIFF:
+      ${truncatedDiff}
 
-Based on the commit message and code changes, categorize this commit as one of:
-- "tweak": Minor adjustments, bug fixes, small improvements
-- "feature": New functionality, major additions
-- "process": Build system, CI/CD, tooling, configuration changes
+      Based on the commit message and code changes, categorize this commit as one of:
+      - "tweak": Minor adjustments, bug fixes, small improvements
+      - "feature": New functionality, major additions
+      - "process": Build system, CI/CD, tooling, configuration changes
 
-Provide:
-1. Category: [tweak|feature|process]
-2. Summary: One-line description (max 80 chars)
-3. Description: Detailed explanation (2-3 sentences)
+      Provide:
+      1. Category: [tweak|feature|process]
+      2. Summary: One-line description (max 80 chars)
+      3. Description: Detailed explanation (2-3 sentences)
 
-Format as JSON:
-\`\`\`json
-{
-  "category": "...",
-  "summary": "...",
-  "description": "..."
-}
-\`\`\``
+      Format as JSON:
+      \`\`\`json
+      {
+        "category": "...",
+        "summary": "...",
+        "description": "..."
+      }
+      \`\`\``
     }
-    
+
     return basePrompt
   }
 
@@ -318,26 +368,26 @@ Format as JSON:
       }
 
       let jsonString = jsonMatch[1].trim()
-      
+
       // Apply codex-specific JSON cleaning
-      if (model === 'codex') {
+      if (model === "codex") {
         // Fix escaped quotes and newlines that codex produces when using -q flag
-        jsonString = jsonString.replace(/\\"/g, '"').replace(/\\n/g, '\n')
-        
+        jsonString = jsonString.replace(/\\"/g, '"').replace(/\\n/g, "\n")
+
         // If the JSON starts with a backslash-n, remove it
-        if (jsonString.startsWith('\\n')) {
+        if (jsonString.startsWith("\\n")) {
           jsonString = jsonString.substring(2)
         }
       }
-      
+
       const parsed = JSON.parse(jsonString)
 
       // Normalize field names for codex (which uses uppercase)
       let category = parsed.category
-      let summary = parsed.summary  
+      let summary = parsed.summary
       let description = parsed.description
-      
-      if (model === 'codex') {
+
+      if (model === "codex") {
         // Codex uses uppercase field names, normalize to lowercase
         category = category || parsed.Category
         summary = summary || parsed.Summary
@@ -359,27 +409,31 @@ Format as JSON:
       }
     } catch (error) {
       // Log the raw response for debugging
-      console.log(`  - Raw LLM response (first 1000 chars): ${response.substring(0, 1000)}`)
+      console.log(
+        `  - Raw LLM response (first 1000 chars): ${response.substring(0, 1000)}`,
+      )
       if (response.length > 1000) {
-        console.log(`  - Response truncated (total length: ${response.length} chars)`)
+        console.log(
+          `  - Response truncated (total length: ${response.length} chars)`,
+        )
       }
-      
+
       // Try to extract and log the JSON block if it exists but is malformed
       const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/)
       if (jsonMatch) {
         console.log(`  - Extracted JSON block: ${jsonMatch[1]}`)
-        
+
         // Show the cleaned version for codex only
-        if (model === 'codex') {
+        if (model === "codex") {
           let cleanedJson = jsonMatch[1].trim()
-          cleanedJson = cleanedJson.replace(/\\"/g, '"').replace(/\\n/g, '\n')
-          if (cleanedJson.startsWith('\\n')) {
+          cleanedJson = cleanedJson.replace(/\\"/g, '"').replace(/\\n/g, "\n")
+          if (cleanedJson.startsWith("\\n")) {
             cleanedJson = cleanedJson.substring(2)
           }
           console.log(`  - Codex-cleaned JSON block: ${cleanedJson}`)
         }
       }
-      
+
       throw new Error(
         `Failed to parse LLM response: ${error instanceof Error ? error.message : "Unknown error"}`,
       )
@@ -395,37 +449,66 @@ Format as JSON:
   /**
    * Check if an error is related to rate limiting or quota exceeded.
    */
-  private static isRateLimitError(error: any): { isRateLimit: boolean; service?: string; limitType?: string } {
-    const errorMessage = error?.message?.toLowerCase() || ""
-    const stderr = error?.stderr?.toLowerCase() || ""
-    const stdout = error?.stdout?.toLowerCase() || ""
+  private static isRateLimitError(error: unknown): {
+    isRateLimit: boolean
+    service?: string
+    limitType?: string
+  } {
+    const errorObj = error as {
+      message?: string
+      stderr?: string
+      stdout?: string
+    }
+    const errorMessage = errorObj?.message?.toLowerCase() || ""
+    const stderr = errorObj?.stderr?.toLowerCase() || ""
+    const stdout = errorObj?.stdout?.toLowerCase() || ""
     const combinedOutput = `${errorMessage} ${stderr} ${stdout}`
 
     // Check for Gemini rate limit patterns
-    if (combinedOutput.includes("quota exceeded") && combinedOutput.includes("gemini")) {
+    if (
+      combinedOutput.includes("quota exceeded") &&
+      combinedOutput.includes("gemini")
+    ) {
       if (combinedOutput.includes("requests per day")) {
-        return { isRateLimit: true, service: "Gemini", limitType: "daily quota" }
+        return {
+          isRateLimit: true,
+          service: "Gemini",
+          limitType: "daily quota",
+        }
       }
       if (combinedOutput.includes("requests per minute")) {
-        return { isRateLimit: true, service: "Gemini", limitType: "per-minute rate limit" }
+        return {
+          isRateLimit: true,
+          service: "Gemini",
+          limitType: "per-minute rate limit",
+        }
       }
       return { isRateLimit: true, service: "Gemini", limitType: "quota limit" }
     }
 
     // Check for Claude rate limit patterns
-    if (combinedOutput.includes("rate limit") && combinedOutput.includes("claude")) {
+    if (
+      combinedOutput.includes("rate limit") &&
+      combinedOutput.includes("claude")
+    ) {
       return { isRateLimit: true, service: "Claude", limitType: "rate limit" }
     }
 
     // Check for generic rate limit indicators
-    if (combinedOutput.includes("429") || 
-        combinedOutput.includes("too many requests") ||
-        combinedOutput.includes("rate limit") ||
-        combinedOutput.includes("quota exceeded")) {
+    if (
+      combinedOutput.includes("429") ||
+      combinedOutput.includes("too many requests") ||
+      combinedOutput.includes("rate limit") ||
+      combinedOutput.includes("quota exceeded")
+    ) {
       // Try to determine service from model name
       const currentModel = this.getModel().toLowerCase()
       if (currentModel.includes("gemini")) {
-        return { isRateLimit: true, service: "Gemini", limitType: "rate/quota limit" }
+        return {
+          isRateLimit: true,
+          service: "Gemini",
+          limitType: "rate/quota limit",
+        }
       }
       if (currentModel.includes("claude")) {
         return { isRateLimit: true, service: "Claude", limitType: "rate limit" }
@@ -439,19 +522,22 @@ Format as JSON:
   /**
    * Get user-friendly error message for rate limit errors.
    */
-  private static getRateLimitMessage(service?: string, limitType?: string): string {
+  private static getRateLimitMessage(
+    service?: string,
+    limitType?: string,
+  ): string {
     if (service === "Gemini" && limitType === "daily quota") {
       return "⚠️  Gemini daily quota exceeded. The limit resets at midnight Pacific Time. Consider switching to a different model or resuming tomorrow."
     }
-    
+
     if (service === "Gemini" && limitType === "per-minute rate limit") {
       return "⚠️  Gemini rate limit exceeded. Wait a minute before retrying, or consider switching to a different model."
     }
-    
+
     if (service === "Claude") {
       return "⚠️  Claude rate limit exceeded. Wait a moment before retrying, or consider switching to a different model."
     }
-    
+
     const serviceMsg = service ? `${service} ` : ""
     return `⚠️  ${serviceMsg}rate limit exceeded. Consider switching models or waiting before retrying.`
   }

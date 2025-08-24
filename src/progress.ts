@@ -19,7 +19,6 @@ export class ProgressTracker {
     analyzedCommits: AnalyzedCommit[],
     outputFile: string,
   ): void {
-    // Preserve the original start time if this is an update to existing progress
     let startTime = new Date().toISOString()
     const existingState = this.loadProgress()
     if (existingState) {
@@ -64,7 +63,7 @@ export class ProgressTracker {
 
   static getRemainingCommits(state: ProgressState): string[] {
     const processedSet = new Set(state.processedCommits)
-    return state.totalCommits.filter(hash => !processedSet.has(hash))
+    return state.totalCommits.filter((hash) => !processedSet.has(hash))
   }
 
   static formatProgressSummary(state: ProgressState): string {
@@ -74,11 +73,12 @@ export class ProgressTracker {
     const percentComplete = Math.round((processed / total) * 100)
 
     return `
-Previous session:
-  - Started: ${new Date(state.startTime).toLocaleString()}
-  - Progress: ${processed}/${total} commits (${percentComplete}%)
-  - Remaining: ${remaining} commits
-  - Output file: ${state.outputFile}
+      Previous session:
+      - Started: ${new Date(state.startTime).toLocaleString()}
+      - Progress: ${processed}/${total} commits (${percentComplete}%)
+      - Remaining: ${remaining} commits
+      - Output file: ${state.outputFile}
     `.trim()
   }
 }
+

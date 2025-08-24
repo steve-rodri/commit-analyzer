@@ -1,4 +1,5 @@
 import { writeFileSync } from "fs"
+import { execSync } from "child_process"
 import { CSVReaderService, ParsedCSVRow } from "./csv-reader"
 import { LLMService } from "./llm"
 
@@ -139,61 +140,61 @@ export class MarkdownReportGenerator {
   private static buildReportPrompt(csvContent: string): string {
     return `Analyze the following CSV data containing git commit analysis results and generate a condensed markdown development summary report.
 
-CSV DATA:
-${csvContent}
+    CSV DATA:
+    ${csvContent}
 
-INSTRUCTIONS:
-1. Group the data by year (descending order, most recent first)
-2. Within each year, group by category: Features, Process Improvements, and Tweaks & Bug Fixes
-3. Consolidate similar items within each category to create readable summaries
-4. Focus on what was accomplished rather than individual commit details
-5. Use clear, professional language appropriate for stakeholders
+    INSTRUCTIONS:
+    1. Group the data by year (descending order, most recent first)
+    2. Within each year, group by category: Features, Process Improvements, and Tweaks & Bug Fixes
+    3. Consolidate similar items within each category to create readable summaries
+    4. Focus on what was accomplished rather than individual commit details
+    5. Use clear, professional language appropriate for stakeholders
 
-CATEGORY MAPPING:
-- "feature" → "Features" section
-- "process" → "Processes" section  
-- "tweak" → "Tweaks & Bug Fixes" section
+    CATEGORY MAPPING:
+    - "feature" → "Features" section
+    - "process" → "Processes" section  
+    - "tweak" → "Tweaks & Bug Fixes" section
 
-CONSOLIDATION GUIDELINES:
-- Group similar features together (e.g., "authentication system improvements")
-- Combine related bug fixes (e.g., "resolved 8 authentication issues")
-- Summarize process changes by theme (e.g., "CI/CD pipeline enhancements")
-- Use bullet points for individual items within categories
-- Aim for 3-7 bullet points per category per year
-- Include specific numbers when relevant (e.g., "15 bug fixes", "3 new features")
+    CONSOLIDATION GUIDELINES:
+    - Group similar features together (e.g., "authentication system improvements")
+    - Combine related bug fixes (e.g., "resolved 8 authentication issues")
+    - Summarize process changes by theme (e.g., "CI/CD pipeline enhancements")
+    - Use bullet points for individual items within categories
+    - Aim for 3-7 bullet points per category per year
+    - Include specific numbers when relevant (e.g., "15 bug fixes", "3 new features")
 
-OUTPUT FORMAT:
-Generate yearly summary sections with this exact structure (DO NOT include the main title or commit analysis section):
+    OUTPUT FORMAT:
+    Generate yearly summary sections with this exact structure (DO NOT include the main title or commit analysis section):
 
-\`\`\`markdown
-## [YEAR]
-### Features
-- [Consolidated feature summary 1]
-- [Consolidated feature summary 2]
-- [Additional features as needed]
+    \`\`\`markdown
+    ## [YEAR]
+    ### Features
+    - [Consolidated feature summary 1]
+    - [Consolidated feature summary 2]
+    - [Additional features as needed]
 
-### Processes
-- [Consolidated process improvement 1]
-- [Consolidated process improvement 2]
-- [Additional process items as needed]
+    ### Processes
+    - [Consolidated process improvement 1]
+    - [Consolidated process improvement 2]
+    - [Additional process items as needed]
 
-### Tweaks & Bug Fixes
-- [Consolidated tweak/fix summary 1]
-- [Consolidated tweak/fix summary 2]
-- [Additional tweaks/fixes as needed]
+    ### Tweaks & Bug Fixes
+    - [Consolidated tweak/fix summary 1]
+    - [Consolidated tweak/fix summary 2]
+    - [Additional tweaks/fixes as needed]
 
-## [PREVIOUS YEAR]
-[Repeat structure for each year in the data]
-\`\`\`
+    ## [PREVIOUS YEAR]
+    [Repeat structure for each year in the data]
+    \`\`\`
 
-QUALITY REQUIREMENTS:
-- Keep summaries concise but informative
-- Use active voice and clear language
-- Avoid technical jargon where possible
-- Ensure each bullet point represents meaningful work
-- Make the report valuable for both technical and non-technical readers
+    QUALITY REQUIREMENTS:
+    - Keep summaries concise but informative
+    - Use active voice and clear language
+    - Avoid technical jargon where possible
+    - Ensure each bullet point represents meaningful work
+    - Make the report valuable for both technical and non-technical readers
 
-Generate the markdown report now:`
+    Generate the markdown report now:`
   }
 
   /**
@@ -205,17 +206,7 @@ Generate the markdown report now:`
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        // Create a mock commit object for the LLM service
-        const mockCommit = {
-          hash: "report-generation",
-          message: "Generate report from CSV data",
-          date: new Date(),
-          diff: prompt,
-          year: new Date().getFullYear(),
-        }
-
         // Use the existing LLM service but intercept the response
-        const { execSync } = require("child_process")
         const currentModel = LLMService.getModel()
 
         console.log(`  - Using model: ${currentModel}`)
@@ -283,4 +274,3 @@ Generate the markdown report now:`
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }
-

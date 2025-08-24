@@ -2,17 +2,17 @@
   "name": "commit-analyzer",
   "version": "1.0.3",
   "description": "Analyze git commits and generate categories, summaries, and descriptions for each commit. Optionally generate a yearly breakdown report of your commit history.",
-  "main": "dist/index.js",
+  "main": "dist/main.js",
   "bin": {
-    "commit-analyzer": "dist/index.js"
+    "commit-analyzer": "dist/main.js"
   },
   "prettier": {
     "semi": false
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts",
+    "start": "node dist/main.js",
+    "dev": "ts-node src/main.ts",
     "lint": "eslint src/**/*.ts",
     "typecheck": "tsc --noEmit"
   },
@@ -26,12 +26,16 @@
   "author": "steverodri",
   "license": "MIT",
   "devDependencies": {
+    "@eslint/js": "^9.34.0",
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
-    "eslint": "^8.0.0",
+    "eslint": "^9.34.0",
+    "globals": "^16.3.0",
+    "jiti": "^2.5.1",
     "ts-node": "^10.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.40.0"
   },
   "dependencies": {
     "commander": "^11.0.0"

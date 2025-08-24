@@ -42,7 +42,7 @@ export class CSVReaderService {
       if (line === "") continue // Skip empty lines
 
       try {
-        const row = this.parseCSVLine(line, i + 1)
+        const row = this.parseCSVLine(line)
         rows.push(row)
       } catch (error) {
         throw new Error(
@@ -54,7 +54,7 @@ export class CSVReaderService {
     return rows
   }
 
-  private static parseCSVLine(line: string, lineNumber: number): ParsedCSVRow {
+  private static parseCSVLine(line: string): ParsedCSVRow {
     const fields = this.parseCSVFields(line)
 
     if (fields.length !== 4) {
