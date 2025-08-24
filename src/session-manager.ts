@@ -93,29 +93,39 @@ export class SessionManager {
     options: CLIOptions,
     commitsToAnalyze: string[],
   ): string[] {
-    // Only get new commits if not resuming
-    if (commitsToAnalyze.length === 0 || (!options.resume && !options.clear)) {
-      if (options.useDefaults) {
-        console.log("No commits specified, analyzing your authored commits...")
-        const userEmail = GitService.getCurrentUserEmail()
-        const userName = GitService.getCurrentUserName()
-        console.log(`Finding commits by ${userName} (${userEmail})`)
-
-        commitsToAnalyze = GitService.getUserAuthoredCommits(
-          options.author,
-          options.limit,
-        )
-
-        if (commitsToAnalyze.length === 0) {
-          throw new ValidationError(
-            "No commits found for the current user. Make sure you have commits in this repository.",
-          )
-        }
-
-        const limitText = options.limit ? ` (limited to ${options.limit})` : ""
-        console.log(`Found ${commitsToAnalyze.length} commits${limitText}`)
-      }
+    const shouldGetNewCommits = this.shouldGetNewCommits(options, commitsToAnalyze)
+    
+    if (shouldGetNewCommits && options.useDefaults) {
+      return this.getUserAuthoredCommitsWithLogging(options)
     }
+    
     return commitsToAnalyze
+  }
+
+  private static shouldGetNewCommits(
+    options: CLIOptions,
+    commitsToAnalyze: string[],
+  ): boolean {
+    return commitsToAnalyze.length === 0 || (!options.resume && !options.clear)
+  }
+
+  private static getUserAuthoredCommitsWithLogging(options: CLIOptions): string[] {
+    console.log("No commits specified, analyzing your authored commits...")
+    const userEmail = GitService.getCurrentUserEmail()
+    const userName = GitService.getCurrentUserName()
+    console.log(`Finding commits by ${userName} (${userEmail})`)
+
+    const commits = GitService.getUserAuthoredCommits(options.author, options.limit)
+
+    if (commits.length === 0) {
+      throw new ValidationError(
+        "No commits found for the current user. Make sure you have commits in this repository.",
+      )
+    }
+
+    const limitText = options.limit ? ` (limited to ${options.limit})` : ""
+    console.log(`Found ${commits.length} commits${limitText}`)
+    
+    return commits
   }
 }

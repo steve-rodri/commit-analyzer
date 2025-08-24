@@ -11,6 +11,7 @@ import { SessionManager } from "./session-manager"
 import { ReportHandler } from "./report-handler"
 import { GitService } from "./git"
 import { getCliOptions } from "./get-cli-options"
+import { AnalyzedCommit } from "./types"
 
 async function main(): Promise<void> {
   try {
@@ -80,21 +81,25 @@ async function main(): Promise<void> {
     ProgressTracker.clearProgress()
     console.log("✓ Progress checkpoint cleared (analysis complete)")
 
-    const summary = analyzedCommits.reduce(
-      (acc, commit) => {
-        acc[commit.analysis.category] = (acc[commit.analysis.category] || 0) + 1
-        return acc
-      },
-      {} as Record<string, number>,
-    )
-
-    console.log("\nSummary by category:")
-    Object.entries(summary).forEach(([category, count]) => {
-      console.log(`  ${category}: ${count} commits`)
-    })
+    displayAnalysisSummary(analyzedCommits)
   } catch (error) {
     handleError(error)
   }
+}
+
+function displayAnalysisSummary(analyzedCommits: AnalyzedCommit[]): void {
+  const summary = analyzedCommits.reduce(
+    (acc, commit) => {
+      acc[commit.analysis.category] = (acc[commit.analysis.category] || 0) + 1
+      return acc
+    },
+    {} as Record<string, number>,
+  )
+
+  console.log("\nSummary by category:")
+  Object.entries(summary).forEach(([category, count]) => {
+    console.log(`  ${category}: ${count} commits`)
+  })
 }
 
 if (require.main === module) {
