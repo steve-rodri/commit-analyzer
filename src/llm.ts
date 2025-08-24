@@ -2,6 +2,10 @@ import { execSync } from "child_process"
 import { CommitInfo, LLMAnalysis } from "./types"
 
 export class LLMService {
+  private static readonly SUPPORTED_MODELS = ["claude", "gemini", "codex"]
+  private static readonly DEFAULT_TIMEOUT = 60000
+  private static readonly NO_MODELS_ERROR = "No supported LLM models found. Please install claude, gemini, or codex."
+  
   private static model: string
   private static verbose: boolean = false
 
@@ -9,8 +13,7 @@ export class LLMService {
    * Detect available LLM models by checking CLI commands.
    */
   static detectAvailableModels(): string[] {
-    const models = ["claude", "gemini", "codex"]
-    const availableModels = models.filter((model) => {
+    const availableModels = this.SUPPORTED_MODELS.filter((model) => {
       try {
         execSync(`command -v ${model}`, { stdio: "ignore" })
         return true
@@ -18,11 +21,11 @@ export class LLMService {
         return false
       }
     })
+    
     if (availableModels.length === 0) {
-      throw new Error(
-        "No supported LLM models found. Please install claude, gemini, or codex.",
-      )
+      throw new Error(this.NO_MODELS_ERROR)
     }
+    
     return availableModels
   }
 
@@ -31,15 +34,12 @@ export class LLMService {
    */
   static detectDefaultModel(): string {
     const available = this.detectAvailableModels()
-    if (available.length === 0) {
-      throw new Error(
-        "No supported LLM models found. Please install claude, gemini, or codex.",
-      )
-    }
+    
     // Default to sonnet if claude is available
     if (available.includes("claude")) {
       return "claude --model sonnet"
     }
+    
     return available[0]
   }
 
@@ -114,132 +114,29 @@ export class LLMService {
     const currentModelCommand = this.getModelCommand()
     const prompt = this.buildPrompt(commit.message, commit.diff, currentModel)
 
-    // Log prompt length for debugging - only for Claude models
-    if (this.isClaudeModel(currentModel)) {
-      console.log(`  - Prompt length: ${prompt.length} characters`)
-      if (prompt.length > this.CLAUDE_MAX_PROMPT_LENGTH) {
-        console.log(
-          `  - Warning: Prompt exceeds Claude max length (${this.CLAUDE_MAX_PROMPT_LENGTH})`,
-        )
-      }
-    }
+    this.logPromptInfo(prompt, currentModel)
 
     let lastError: Error | null = null
 
     for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
       try {
-        let output: string
-
-        if (currentModel === "codex") {
-          // Codex -q requires prompt as command line argument, not stdin
-          output = execSync(`codex -q "${prompt.replace(/"/g, '\\"')}"`, {
-            encoding: "utf8",
-            stdio: ["pipe", "pipe", "pipe"],
-            timeout: 60000,
-          })
-        } else {
-          // Other models use stdin
-          output = execSync(currentModelCommand, {
-            input: prompt,
-            encoding: "utf8",
-            stdio: ["pipe", "pipe", "pipe"],
-            timeout: 60000,
-          })
-        }
-
+        const output = await this.executeModelCommand(currentModel, currentModelCommand, prompt)
         return this.parseResponse(output, currentModel)
       } catch (error) {
         lastError = error instanceof Error ? error : new Error("Unknown error")
-
-        // Check if this is a rate limit error
-        const rateLimitInfo = this.isRateLimitError(error)
-
-        if (rateLimitInfo.isRateLimit) {
-          // For rate limits, show user-friendly message immediately
-          const friendlyMessage = this.getRateLimitMessage(
-            rateLimitInfo.service,
-            rateLimitInfo.limitType,
-          )
-          console.log(`  - ${friendlyMessage}`)
-
-          // Show detailed error info only in verbose mode
-          if (this.verbose) {
-            console.log(
-              `  - Verbose error details for commit ${commit.hash.substring(0, 8)}:`,
-            )
-            console.log(`    Command: ${currentModelCommand}`)
-            console.log(`    Error message: ${lastError.message}`)
-            if (this.isClaudeModel(currentModel)) {
-              console.log(`    Prompt length: ${prompt.length} characters`)
-            }
-
-            // If it's an exec error, log additional details
-            if (error && typeof error === "object" && "stderr" in error) {
-              const execError = error as {
-                status?: number
-                signal?: string
-                stderr?: string
-                stdout?: string
-              }
-              console.log(`    Exit code: ${execError.status || "unknown"}`)
-              console.log(`    Signal: ${execError.signal || "none"}`)
-              if (execError.stderr) {
-                console.log(
-                  `    Stderr: ${execError.stderr.substring(0, 1000)}${execError.stderr.length > 1000 ? "..." : ""}`,
-                )
-              }
-            }
-          }
-
-          // If it's a daily quota error, don't retry - fail immediately
-          if (rateLimitInfo.limitType === "daily quota") {
-            throw new Error(
-              `Daily quota exceeded for ${rateLimitInfo.service || "LLM service"}. Retrying will not help until quota resets.`,
-            )
-          }
-        } else {
-          // For non-rate-limit errors, show detailed info based on verbose mode
-          if (this.verbose) {
-            console.log(
-              `  - Error details for commit ${commit.hash.substring(0, 8)}:`,
-            )
-            console.log(`    Command: ${currentModelCommand}`)
-            console.log(`    Error message: ${lastError.message}`)
-            if (this.isClaudeModel(currentModel)) {
-              console.log(`    Prompt length: ${prompt.length} characters`)
-            }
-
-            // If it's an exec error, log additional details
-            if (error && typeof error === "object" && "stderr" in error) {
-              const execError = error as {
-                status?: number
-                signal?: string
-                stderr?: string
-                stdout?: string
-              }
-              console.log(`    Exit code: ${execError.status || "unknown"}`)
-              console.log(`    Signal: ${execError.signal || "none"}`)
-              console.log(`    Stderr: ${execError.stderr || "none"}`)
-              console.log(`    Stdout: ${execError.stdout || "none"}`)
-            }
-          } else {
-            // In non-verbose mode, show concise error message
-            console.log(`  - Analysis failed: ${lastError.message}`)
-          }
-        }
-
-        if (attempt < this.MAX_RETRIES) {
-          const delay = Math.min(
-            this.INITIAL_RETRY_DELAY *
-              Math.pow(this.RETRY_MULTIPLIER, attempt - 1),
-            this.MAX_RETRY_DELAY,
-          )
-
-          console.log(
-            `  - Attempt ${attempt}/${this.MAX_RETRIES} failed for commit ${commit.hash.substring(0, 8)}. Retrying in ${delay / 1000}s...`,
-          )
-
-          await this.sleep(delay)
+        
+        const shouldContinue = await this.handleAnalysisError(
+          error,
+          commit,
+          currentModel,
+          currentModelCommand,
+          prompt,
+          attempt,
+          lastError,
+        )
+        
+        if (!shouldContinue) {
+          break
         }
       }
     }
@@ -251,6 +148,156 @@ export class LLMService {
 
   private static sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms))
+  }
+
+  private static logPromptInfo(prompt: string, model: string): void {
+    if (this.isClaudeModel(model)) {
+      console.log(`  - Prompt length: ${prompt.length} characters`)
+      if (prompt.length > this.CLAUDE_MAX_PROMPT_LENGTH) {
+        console.log(
+          `  - Warning: Prompt exceeds Claude max length (${this.CLAUDE_MAX_PROMPT_LENGTH})`,
+        )
+      }
+    }
+  }
+
+  private static async executeModelCommand(
+    model: string,
+    modelCommand: string,
+    prompt: string,
+  ): Promise<string> {
+    if (model === "codex") {
+      // Codex -q requires prompt as command line argument, not stdin
+      return execSync(`codex -q "${prompt.replace(/"/g, '\\"')}"`, {
+        encoding: "utf8",
+        stdio: ["pipe", "pipe", "pipe"],
+        timeout: this.DEFAULT_TIMEOUT,
+      })
+    } else {
+      // Other models use stdin
+      return execSync(modelCommand, {
+        input: prompt,
+        encoding: "utf8",
+        stdio: ["pipe", "pipe", "pipe"],
+        timeout: this.DEFAULT_TIMEOUT,
+      })
+    }
+  }
+
+  private static async handleAnalysisError(
+    error: unknown,
+    commit: CommitInfo,
+    currentModel: string,
+    currentModelCommand: string,
+    prompt: string,
+    attempt: number,
+    lastError: Error,
+  ): Promise<boolean> {
+    const rateLimitInfo = this.isRateLimitError(error)
+
+    if (rateLimitInfo.isRateLimit) {
+      await this.handleRateLimitError(rateLimitInfo, commit, currentModelCommand, lastError, currentModel, prompt)
+      
+      // If it's a daily quota error, don't retry
+      if (rateLimitInfo.limitType === "daily quota") {
+        throw new Error(
+          `Daily quota exceeded for ${rateLimitInfo.service || "LLM service"}. Retrying will not help until quota resets.`,
+        )
+      }
+    } else {
+      this.handleGeneralError(commit, currentModelCommand, lastError, currentModel, prompt, error)
+    }
+
+    // Handle retry logic
+    if (attempt < this.MAX_RETRIES) {
+      await this.waitForRetry(attempt, commit)
+      return true
+    }
+
+    return false
+  }
+
+  private static async handleRateLimitError(
+    rateLimitInfo: { service?: string; limitType?: string },
+    commit: CommitInfo,
+    currentModelCommand: string,
+    lastError: Error,
+    currentModel: string,
+    prompt: string,
+  ): Promise<void> {
+    const friendlyMessage = this.getRateLimitMessage(
+      rateLimitInfo.service,
+      rateLimitInfo.limitType,
+    )
+    console.log(`  - ${friendlyMessage}`)
+
+    if (this.verbose) {
+      this.logDetailedErrorInfo(commit, currentModelCommand, lastError, currentModel, prompt)
+    }
+  }
+
+  private static handleGeneralError(
+    commit: CommitInfo,
+    currentModelCommand: string,
+    lastError: Error,
+    currentModel: string,
+    prompt: string,
+    error: unknown,
+  ): void {
+    if (this.verbose) {
+      this.logDetailedErrorInfo(commit, currentModelCommand, lastError, currentModel, prompt)
+      this.logExecErrorDetails(error)
+    } else {
+      console.log(`  - Analysis failed: ${lastError.message}`)
+    }
+  }
+
+  private static logDetailedErrorInfo(
+    commit: CommitInfo,
+    currentModelCommand: string,
+    lastError: Error,
+    currentModel: string,
+    prompt: string,
+  ): void {
+    console.log(
+      `  - Verbose error details for commit ${commit.hash.substring(0, 8)}:`,
+    )
+    console.log(`    Command: ${currentModelCommand}`)
+    console.log(`    Error message: ${lastError.message}`)
+    if (this.isClaudeModel(currentModel)) {
+      console.log(`    Prompt length: ${prompt.length} characters`)
+    }
+  }
+
+  private static logExecErrorDetails(error: unknown): void {
+    if (error && typeof error === "object" && "stderr" in error) {
+      const execError = error as {
+        status?: number
+        signal?: string
+        stderr?: string
+        stdout?: string
+      }
+      console.log(`    Exit code: ${execError.status || "unknown"}`)
+      console.log(`    Signal: ${execError.signal || "none"}`)
+      if (execError.stderr) {
+        console.log(
+          `    Stderr: ${execError.stderr.substring(0, 1000)}${execError.stderr.length > 1000 ? "..." : ""}`,
+        )
+      }
+    }
+  }
+
+  private static async waitForRetry(attempt: number, commit: CommitInfo): Promise<void> {
+    const delay = Math.min(
+      this.INITIAL_RETRY_DELAY * Math.pow(this.RETRY_MULTIPLIER, attempt - 1),
+      this.MAX_RETRY_DELAY,
+    )
+
+    console.log(
+      `  - Attempt ${attempt}/${this.MAX_RETRIES} failed for commit ${commit.hash.substring(0, 8)}. Retrying in ${delay / 1000}s...`,
+    )
+
+    await this.sleep(delay)
   }
 
   static getMaxRetries(): number {
