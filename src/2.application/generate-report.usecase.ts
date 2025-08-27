@@ -7,6 +7,7 @@ import {
 import { ICommandHandler } from "@presentation/command-handler.interface"
 import { ConsoleFormatter } from "@presentation/console-formatter"
 import { IStorageRepository } from "@presentation/storage-repository.interface"
+import { ILLMService } from "./llm-service"
 
 export interface GenerateReportCommand {
   inputCsvPath?: string
@@ -27,6 +28,7 @@ export class GenerateReportUseCase
   constructor(
     private readonly reportGenerationService: ReportGenerationService,
     private readonly storageRepository: IStorageRepository,
+    private readonly llmService: ILLMService,
   ) {}
 
   async handle(command: GenerateReportCommand): Promise<GenerateReportResult> {
@@ -65,7 +67,7 @@ export class GenerateReportUseCase
 
     // Generate and save the report
     ConsoleFormatter.logInfo("Generating condensed report...")
-    await this.generateMarkdownReport(
+    await this.generateMarkdownReportWithLLM(
       commits,
       statistics,
       outputPath,
@@ -81,94 +83,87 @@ export class GenerateReportUseCase
     }
   }
 
-  private async generateMarkdownReport(
+  private async generateMarkdownReportWithLLM(
     commits: AnalyzedCommit[],
     statistics: CommitStatistics,
     outputPath: string,
     includeStatistics: boolean,
   ): Promise<void> {
-    let reportContent = ""
+    let reportContent = "# Development Summary Report\n\n"
 
     if (includeStatistics) {
-      reportContent += this.generateStatisticsSection(statistics)
-      reportContent += "\n"
-      reportContent += this.generateYearlySummaries(commits)
-      reportContent += "\n"
+      reportContent += this.generateAnalysisSection(commits, statistics)
+      reportContent += "\n\n"
     }
 
-    // Get the basic report content from storage repository
-    const basicReportPath = outputPath + ".tmp"
-    await this.storageRepository.generateReport(commits, basicReportPath)
-    
-    // Read the basic report content
-    const fs = await import("fs/promises")
-    const basicContent = await fs.readFile(basicReportPath, "utf-8")
-    
-    // Combine statistics with basic content
-    reportContent += basicContent
-    
+    // Generate sophisticated yearly summaries using LLM
+    reportContent += await this.generateYearlySummariesWithLLM(commits)
+
     // Write the final report
+    const fs = await import("fs/promises")
     await fs.writeFile(outputPath, reportContent, "utf-8")
-    
-    // Clean up temp file
-    await fs.unlink(basicReportPath)
   }
 
-  private generateStatisticsSection(statistics: CommitStatistics): string {
-    let content = "## Analysis Summary\n\n"
+  /**
+   * Generate commit analysis section with accurate counts (like the original)
+   */
+  private generateAnalysisSection(
+    commits: AnalyzedCommit[],
+    statistics: CommitStatistics,
+  ): string {
+    // Group data by year for detailed breakdown
+    const yearlyStats = commits.reduce(
+      (acc, commit) => {
+        const year = commit.getYear()
+        const category = commit.getAnalysis().getCategory().getValue()
+        
+        if (!acc[year]) {
+          acc[year] = { tweak: 0, feature: 0, process: 0, total: 0 }
+        }
+        acc[year][category]++
+        acc[year].total++
+        return acc
+      },
+      {} as Record<
+        number,
+        { tweak: number; feature: number; process: number; total: number }
+      >,
+    )
 
-    content += `**Total Commits Analyzed:** ${statistics.totalCommits}\n`
-    content += `**Time Period:** ${statistics.yearRange.min} - ${statistics.yearRange.max}\n`
-    content += `**Large Changes:** ${statistics.largeChanges} commits\n\n`
+    // Sort years in descending order
+    const sortedYears = Object.keys(yearlyStats)
+      .map(Number)
+      .sort((a, b) => b - a)
 
-    content += "### Breakdown by Category\n\n"
-    content += `- **Features:** ${statistics.categoryBreakdown.feature} commits\n`
-    content += `- **Process/Infrastructure:** ${statistics.categoryBreakdown.process} commits\n`
-    content += `- **Tweaks/Fixes:** ${statistics.categoryBreakdown.tweak} commits\n\n`
+    let analysisContent = `## Commit Analysis\n`
+    analysisContent += `- **Total Commits**: ${statistics.totalCommits} commits across ${statistics.yearRange.min}-${statistics.yearRange.max}\n`
 
-    content += "### Yearly Activity\n\n"
-    for (const [year, count] of Object.entries(
-      statistics.yearlyBreakdown,
-    ).sort()) {
-      content += `- **${year}:** ${count} commits\n`
-    }
-
-    content += "\n"
-    return content
-  }
-
-  private generateYearlySummaries(commits: AnalyzedCommit[]): string {
-    const commitsByYear = this.reportGenerationService.groupByYear(commits)
-    const sortedYears = Array.from(commitsByYear.keys()).sort((a, b) => b - a) // Newest first
-
-    let content = "## Yearly Development Highlights\n\n"
-
+    // Add year-by-year breakdown
     for (const year of sortedYears) {
-      const yearCommits = commitsByYear.get(year)!
-      content += this.generateYearSection(year, yearCommits)
-      content += "\n"
+      const yearData = yearlyStats[year]
+      analysisContent += `- **${year}**: ${yearData.total} commits (${yearData.feature} features, ${yearData.process} process, ${yearData.tweak} tweaks)\n`
     }
 
-    return content
+    return analysisContent
   }
 
-  private generateYearSection(year: number, commits: AnalyzedCommit[]): string {
-    const features = commits.filter((c) => c.getAnalysis().isFeatureAnalysis())
-    const significantCommits =
-      this.reportGenerationService.getSignificantCommits(commits)
+  /**
+   * Generate sophisticated yearly summaries using LLM service (restored from original)
+   */
+  private async generateYearlySummariesWithLLM(
+    commits: AnalyzedCommit[],
+  ): Promise<string> {
+    // Convert commits to CSV format for LLM consumption
+    const csvContent = this.reportGenerationService.convertToCSVString(commits)
 
-    let content = `### ${year}\n\n`
-    content += `${commits.length} commits total, including ${features.length} new features.\n\n`
-
-    if (significantCommits.length > 0) {
-      content += "**Key Developments:**\n"
-      for (const commit of significantCommits.slice(0, 5)) {
-        // Top 5 significant commits
-        content += `- ${commit.getAnalysis().getSummary()} (${commit.getShortHash()})\n`
-      }
-      content += "\n"
+    try {
+      // Use the LLM service to generate sophisticated yearly summaries
+      const yearlyContent = await this.llmService.generateYearlySummariesFromCSV(csvContent)
+      return yearlyContent
+    } catch (error) {
+      throw new Error(
+        `Failed to generate yearly summaries: ${error instanceof Error ? error.message : "Unknown error"}`,
+      )
     }
-
-    return content
   }
 }

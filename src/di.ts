@@ -67,6 +67,7 @@ export class DIContainer {
   private readonly generateReportUseCase = new GenerateReportUseCase(
     this.reportGenerationService,
     this.storageRepository,
+    this.llmAdapter,
   )
 
   private readonly resumeAnalysisUseCase = new ResumeAnalysisUseCase(

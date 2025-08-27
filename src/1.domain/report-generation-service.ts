@@ -147,4 +147,32 @@ export class ReportGenerationService {
         commit.getAnalysis().isFeatureAnalysis() || commit.isLargeChange(),
     )
   }
+
+  /**
+   * Converts analyzed commits to CSV string format for LLM consumption
+   */
+  convertToCSVString(commits: AnalyzedCommit[]): string {
+    const header = "year,category,summary,description"
+    const rows = commits.map((commit) => {
+      const analysis = commit.getAnalysis()
+      return [
+        commit.getYear().toString(),
+        this.escapeCsvField(analysis.getCategory().getValue()),
+        this.escapeCsvField(analysis.getSummary()),
+        this.escapeCsvField(analysis.getDescription()),
+      ].join(",")
+    })
+
+    return [header, ...rows].join("\n")
+  }
+
+  /**
+   * Escape CSV fields that contain commas, quotes, or newlines
+   */
+  private escapeCsvField(field: string): string {
+    if (field.includes(",") || field.includes('"') || field.includes("\n")) {
+      return `"${field.replace(/"/g, '""')}"`
+    }
+    return field
+  }
 }

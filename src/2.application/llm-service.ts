@@ -37,6 +37,12 @@ export interface ILLMService {
   getMaxRetries(): number
 
   /**
+   * Generates sophisticated yearly summaries from CSV data using LLM
+   * with consolidation, categorization, and stakeholder-friendly language
+   */
+  generateYearlySummariesFromCSV(csvContent: string): Promise<string>
+
+  /**
    * Checks if the service is available and configured
    */
   isAvailable(): Promise<boolean>
