@@ -24,9 +24,9 @@ export interface CLIOptions {
 }
 
 export class CLIApplication {
+  private static readonly VERSION = "1.1.0"
   private static readonly DEFAULT_COMMITS_OUTPUT_FILE = "results/commits.csv"
   private static readonly DEFAULT_REPORT_OUTPUT_FILE = "results/report.md"
-  private static readonly DEFAULT_VERSION = "1.0.3"
 
   constructor(private readonly controller: CommitAnalysisController) {}
 
@@ -48,7 +48,7 @@ export class CLIApplication {
       .description(
         "Analyze user authored git commits and generate rich commit descriptions and stakeholder reports from them.",
       )
-      .version(CLIApplication.DEFAULT_VERSION)
+      .version(CLIApplication.VERSION)
       .option(
         "-o, --output <file>",
         `Output CSV file (default: ${CLIApplication.DEFAULT_COMMITS_OUTPUT_FILE})`,
@@ -89,10 +89,7 @@ export class CLIApplication {
         "--until <date>",
         "Only analyze commits until this date (YYYY-MM-DD, '1 day ago', '2024-12-31')",
       )
-      .option(
-        "--no-cache",
-        "Disable caching of analysis results",
-      )
+      .option("--no-cache", "Disable caching of analysis results")
       .option(
         "--batch-size <number>",
         "Number of commits to process per batch (default: 1 for sequential processing)",
@@ -162,7 +159,7 @@ export class CLIApplication {
       await this.controller.handleReportGeneration({
         inputCsv: options.inputCsv,
         output: options.output || CLIApplication.DEFAULT_REPORT_OUTPUT_FILE,
-        sourceInfo: { type: 'csv', value: options.inputCsv }
+        sourceInfo: { type: "csv", value: options.inputCsv },
       })
       return
     }
@@ -174,14 +171,17 @@ export class CLIApplication {
       })
 
       if (resumed && options.report) {
-        const reportOutput = options.output 
+        const reportOutput = options.output
           ? this.getReportOutputPath(options.output)
           : CLIApplication.DEFAULT_REPORT_OUTPUT_FILE
-          
+
         await this.controller.handleReportGeneration({
           inputCsv: options.output,
           output: reportOutput,
-          sourceInfo: { type: 'csv', value: options.output || CLIApplication.DEFAULT_COMMITS_OUTPUT_FILE }
+          sourceInfo: {
+            type: "csv",
+            value: options.output || CLIApplication.DEFAULT_COMMITS_OUTPUT_FILE,
+          },
         })
       }
       return
@@ -201,15 +201,16 @@ export class CLIApplication {
 
     if (options.report) {
       // Analysis + Report workflow
-      const reportOutput = options.output 
+      const reportOutput = options.output
         ? this.getReportOutputPath(options.output)
         : CLIApplication.DEFAULT_REPORT_OUTPUT_FILE
-      
+
       await this.controller.handleAnalysisWithReport(analyzeOptions, {
         output: reportOutput,
-        sourceInfo: options.commits.length > 0 
-          ? { type: 'commits', value: options.commits.join(',') }
-          : { type: 'author', value: options.author || 'current user' }
+        sourceInfo:
+          options.commits.length > 0
+            ? { type: "commits", value: options.commits.join(",") }
+            : { type: "author", value: options.author || "current user" },
       })
     } else {
       // Analysis only workflow
@@ -243,10 +244,10 @@ export class CLIApplication {
     if (!csvPath) {
       return CLIApplication.DEFAULT_REPORT_OUTPUT_FILE
     }
-    
+
     // Extract directory from CSV path and use report.md as filename
     if (csvPath.endsWith(".csv")) {
-      const dir = csvPath.substring(0, csvPath.lastIndexOf('/'))
+      const dir = csvPath.substring(0, csvPath.lastIndexOf("/"))
       return dir ? `${dir}/report.md` : "report.md"
     }
     return csvPath + ".md"
