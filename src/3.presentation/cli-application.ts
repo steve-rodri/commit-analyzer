@@ -24,7 +24,7 @@ export interface CLIOptions {
 }
 
 export class CLIApplication {
-  private static readonly VERSION = "1.1.0"
+  private static readonly VERSION = "1.1.1"
   private static readonly DEFAULT_COMMITS_OUTPUT_FILE = "results/commits.csv"
   private static readonly DEFAULT_REPORT_OUTPUT_FILE = "results/report.md"
 
