@@ -15,7 +15,8 @@
     "dev": "bun src/main.ts",
     "lint": "eslint src/**/*.ts",
     "typecheck": "tsc --noEmit",
-    "link": "bun link"
+    "link": "bun link",
+    "publish": "bun publish"
   },
   "keywords": [
     "git",
