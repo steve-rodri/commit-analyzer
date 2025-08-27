@@ -11,17 +11,21 @@ import { CommitAnalysisController } from "@presentation/commit-analysis-controll
 import { ReportCommand } from "@presentation/report-command"
 import { ResumeCommand } from "@presentation/resume-command"
 
-import { ClaudeLLMAdapter } from "@infra/claude-llm-adapter"
 import { FileStorageRepository } from "@infra/file-storage-repository"
 import { FileSystemStorageAdapter } from "@infra/file-system-storage-adapter"
 import { GitAdapter } from "@infra/git-adapter"
 import { GitCommitRepository } from "@infra/git-commit-repository"
 import { JSONProgressTracker } from "@infra/json-progress-tracker"
+import { LLMAdapterFactory } from "@infra/llm-adapter-factory"
 import { LLMAnalysisRepository } from "@infra/llm-analysis-repository"
+
+export interface DIContainerOptions {
+  llm?: string
+}
 
 export class DIContainer {
   private readonly gitAdapter = new GitAdapter()
-  private readonly llmAdapter = new ClaudeLLMAdapter()
+  private readonly llmAdapter = LLMAdapterFactory.create(this.options?.llm)
   private readonly storageAdapter = new FileSystemStorageAdapter()
   private readonly progressTracker = new JSONProgressTracker(
     this.storageAdapter,
@@ -69,11 +73,15 @@ export class DIContainer {
     this.analyzeCommand,
     this.reportCommand,
     this.resumeCommand,
+    this.progressTracker,
   )
 
   private readonly application = new CLIApplication(this.controller)
+
+  constructor(private readonly options?: DIContainerOptions) {}
 
   getApplication(): CLIApplication {
     return this.application
   }
 }
+

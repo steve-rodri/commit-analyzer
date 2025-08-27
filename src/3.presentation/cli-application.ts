@@ -8,21 +8,20 @@ import { ConsoleFormatter } from "./console-formatter"
 export interface CLIOptions {
   output?: string
   outputDir?: string
-  file?: string
   commits: string[]
   author?: string
   limit?: number
-  useDefaults: boolean
   resume?: boolean
   clear?: boolean
-  model?: string
+  llm?: string
   report?: boolean
   inputCsv?: string
   verbose?: boolean
 }
 
 export class CLIApplication {
-  private static readonly DEFAULT_OUTPUT_FILE = "commits.csv"
+  private static readonly DEFAULT_COMMITS_OUTPUT_FILE = "commits.csv"
+  private static readonly DEFAULT_REPORT_OUTPUT_FILE = "reports.md"
   private static readonly DEFAULT_VERSION = "1.0.3"
 
   constructor(private readonly controller: CommitAnalysisController) {}
@@ -48,15 +47,11 @@ export class CLIApplication {
       .version(CLIApplication.DEFAULT_VERSION)
       .option(
         "-o, --output <file>",
-        `Output CSV file (default: ${CLIApplication.DEFAULT_OUTPUT_FILE})`,
+        `Output CSV file (default: ${CLIApplication.DEFAULT_COMMITS_OUTPUT_FILE})`,
       )
       .option(
         "--output-dir <dir>",
         "Output directory for CSV and report files (default: current directory)",
-      )
-      .option(
-        "-f, --file <file>",
-        "Read commit hashes from file (one per line)",
       )
       .option(
         "-a, --author <email>",
@@ -69,7 +64,7 @@ export class CLIApplication {
       )
       .option("-r, --resume", "Resume from last checkpoint if available")
       .option("-c, --clear", "Clear any existing progress checkpoint")
-      .option("-m, --model <model>", "LLM model to use (claude, gemini, codex)")
+      .option("--llm <llm>", "LLM CLI tool to use (claude, gemini, openai)")
       .option(
         "--report",
         "Generate condensed markdown report from existing CSV",
@@ -90,7 +85,6 @@ export class CLIApplication {
         const cliOptions = this.parseOptions(options, commits)
         await this.executeCommand(cliOptions)
       })
-
     return program
   }
 
@@ -98,25 +92,19 @@ export class CLIApplication {
     options: Record<string, unknown>,
     args: string[],
   ): CLIOptions {
-    const { commits, useDefaults } = this.determineCommitsToAnalyze(
-      { file: this.getStringOption(options.file) },
-      args,
-    )
-
+    const { commits } = this.determineCommitsToAnalyze(args)
     return {
       output: this.determineOutputPath(
         this.getStringOption(options.output),
         this.getStringOption(options.outputDir),
       ),
       outputDir: this.getStringOption(options.outputDir),
-      file: this.getStringOption(options.file),
       commits,
       author: this.getStringOption(options.author),
       limit: this.getNumberOption(options.limit),
-      useDefaults,
       resume: this.getBooleanOption(options.resume),
       clear: this.getBooleanOption(options.clear),
-      model: this.getStringOption(options.model),
+      llm: this.getStringOption(options.llm),
       report: this.getBooleanOption(options.report),
       inputCsv: this.getStringOption(options.inputCsv),
       verbose: this.getBooleanOption(options.verbose),
@@ -148,7 +136,7 @@ export class CLIApplication {
     if (options.inputCsv) {
       await this.controller.handleReportGeneration({
         inputCsv: options.inputCsv,
-        output: options.output || "report.md",
+        output: options.output || CLIApplication.DEFAULT_REPORT_OUTPUT_FILE,
       })
       return
     }
@@ -175,8 +163,6 @@ export class CLIApplication {
       author: options.author,
       limit: options.limit,
       verbose: options.verbose,
-      file: options.file,
-      useDefaults: options.useDefaults,
     }
 
     if (options.report) {
@@ -190,23 +176,12 @@ export class CLIApplication {
     }
   }
 
-  private determineCommitsToAnalyze(
-    options: { file?: string },
-    args: string[],
-  ): { commits: string[]; useDefaults: boolean } {
+  private determineCommitsToAnalyze(args: string[]): { commits: string[] } {
     let commits: string[] = []
-    let useDefaults = false
-
-    if (options.file) {
-      // File reading will be handled by the command
-      commits = []
-    } else if (args.length > 0) {
+    if (args.length > 0) {
       commits = args
-    } else {
-      useDefaults = true
     }
-
-    return { commits, useDefaults }
+    return { commits }
   }
 
   private determineOutputPath(
@@ -216,12 +191,10 @@ export class CLIApplication {
     if (outputOption) {
       return outputOption
     }
-
     if (outputDir) {
-      return `${outputDir}/${CLIApplication.DEFAULT_OUTPUT_FILE}`
+      return `${outputDir}/${CLIApplication.DEFAULT_COMMITS_OUTPUT_FILE}`
     }
-
-    return CLIApplication.DEFAULT_OUTPUT_FILE
+    return CLIApplication.DEFAULT_COMMITS_OUTPUT_FILE
   }
 
   private getReportOutputPath(csvPath: string): string {

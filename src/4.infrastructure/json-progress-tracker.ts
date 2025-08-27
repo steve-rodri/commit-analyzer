@@ -1,3 +1,7 @@
+import { Analysis } from "@domain/analysis"
+import { AnalyzedCommit } from "@domain/analyzed-commit"
+import { Category } from "@domain/category"
+import { Commit } from "@domain/commit"
 import { CommitHash } from "@domain/commit-hash"
 
 import { ConsoleFormatter } from "@presentation/console-formatter"
@@ -110,7 +114,9 @@ export class JSONProgressTracker implements IProgressRepository {
       processedCommits: (data.processedCommits as string[]).map(
         (hash: string) => CommitHash.create(hash),
       ),
-      analyzedCommits: [], // For now, we'll not deserialize the full analyzed commits
+      analyzedCommits: this.deserializeAnalyzedCommits(
+        data.analyzedCommits as Record<string, unknown>[],
+      ),
       lastProcessedIndex: data.lastProcessedIndex as number,
       startTime: new Date(data.startTime as string),
       outputFile: data.outputFile as string,
@@ -141,5 +147,32 @@ export class JSONProgressTracker implements IProgressRepository {
     if (typeof data.outputFile !== "string") {
       throw new Error("Invalid progress data: outputFile must be a string")
     }
+  }
+
+  private deserializeAnalyzedCommits(
+    data: Record<string, unknown>[],
+  ): AnalyzedCommit[] {
+    if (!Array.isArray(data)) {
+      return []
+    }
+
+    return data.map((item: Record<string, unknown>) => {
+      const hash = CommitHash.create(item.hash as string)
+      const commit = new Commit(
+        hash,
+        item.message as string,
+        new Date(item.date as string),
+        "", // We don't store diff in progress, so use empty string
+      )
+
+      const category = Category.create(item.category as string)
+      const analysis = new Analysis(
+        category,
+        item.summary as string,
+        item.description as string,
+      )
+
+      return new AnalyzedCommit(commit, analysis)
+    })
   }
 }

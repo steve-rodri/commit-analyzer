@@ -1,4 +1,6 @@
 import { AnalyzeCommand, AnalyzeCommandOptions } from "./analyze-command"
+import { ConsoleFormatter } from "./console-formatter"
+import { IProgressRepository } from "./progress-repository.interface"
 import { ReportCommand, ReportCommandOptions } from "./report-command"
 import { ResumeCommand, ResumeCommandOptions } from "./resume-command"
 
@@ -10,6 +12,7 @@ export class CommitAnalysisController {
     private readonly analyzeCommand: AnalyzeCommand,
     private readonly reportCommand: ReportCommand,
     private readonly resumeCommand: ResumeCommand,
+    private readonly progressRepository: IProgressRepository,
   ) {}
 
   /**
@@ -56,8 +59,7 @@ export class CommitAnalysisController {
    * Handles clearing progress
    */
   async handleClearProgress(): Promise<void> {
-    // This would typically call a progress service to clear checkpoints
-    // For now, just log the action
-    console.log("✓ Progress checkpoint cleared")
+    await this.progressRepository.clearProgress()
+    ConsoleFormatter.logSuccess("✓ Progress checkpoint cleared")
   }
 }

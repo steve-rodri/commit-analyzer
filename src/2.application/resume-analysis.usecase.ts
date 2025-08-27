@@ -2,6 +2,8 @@ import { ICommandHandler } from "@presentation/command-handler.interface"
 import { ConsoleFormatter } from "@presentation/console-formatter"
 import { IProgressRepository } from "@presentation/progress-repository.interface"
 
+import { createPromiseReadline } from "../utils"
+
 import {
   AnalyzeCommitsResult,
   AnalyzeCommitsUseCase,
@@ -109,9 +111,13 @@ export class ResumeAnalysisUseCase
   }
 
   private async promptUserForResume(): Promise<boolean> {
-    // This would typically use a presentation layer service
-    // For now, we'll return true to auto-resume
-    // In a real implementation, this would prompt the user
-    return true
+    const { question, close } = createPromiseReadline()
+    try {
+      const answer = await question("Resume from previous session? (y/n): ")
+      const normalizedAnswer = answer.toLowerCase().trim()
+      return normalizedAnswer === "y" || normalizedAnswer === "yes"
+    } finally {
+      close()
+    }
   }
 }

@@ -29,8 +29,13 @@ export abstract class LLMAdapter implements ILLMService {
   abstract isAvailable(): Promise<boolean>
   protected abstract executeModelCommand(prompt: string): Promise<string>
 
+  setLLM(llm: string): void {
+    this.model = llm
+  }
+
+  // Deprecated: Use setLLM instead
   setModel(model: string): void {
-    this.model = model
+    this.setLLM(model)
   }
 
   setVerbose(verbose: boolean): void {
