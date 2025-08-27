@@ -17,7 +17,11 @@ export class LLMAnalysisRepository implements IAnalysisRepository {
 
     const category = Category.fromType(result.category)
 
-    return new Analysis(category, result.summary, result.description)
+    return new Analysis({
+      category,
+      summary: result.summary,
+      description: result.description,
+    })
   }
 
   async isAvailable(): Promise<boolean> {

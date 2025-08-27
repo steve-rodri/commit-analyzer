@@ -4,12 +4,22 @@ import { CommitHash } from "./commit-hash"
  * Domain entity representing a Git commit
  */
 export class Commit {
-  constructor(
-    private readonly hash: CommitHash,
-    private readonly message: string,
-    private readonly date: Date,
-    private readonly diff: string,
-  ) {
+  private readonly hash: CommitHash
+  private readonly message: string
+  private readonly date: Date
+  private readonly diff: string
+
+  constructor(params: {
+    hash: CommitHash
+    message: string
+    date: Date
+    diff: string
+  }) {
+    const { hash, message, date, diff } = params
+    this.hash = hash
+    this.message = message
+    this.date = date
+    this.diff = diff
     if (!message || message.trim().length === 0) {
       throw new Error("Commit message cannot be empty")
     }

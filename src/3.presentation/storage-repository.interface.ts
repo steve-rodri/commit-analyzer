@@ -25,4 +25,9 @@ export interface IStorageRepository {
    * Ensures a directory exists
    */
   ensureDirectoryExists(directoryPath: string): Promise<void>
+
+  /**
+   * Writes content to a file
+   */
+  writeFile(filePath: string, content: string): Promise<void>
 }

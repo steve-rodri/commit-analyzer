@@ -6,12 +6,20 @@ import { Category } from "./category"
 export class Analysis {
   private static readonly MAX_SUMMARY_LENGTH = 80
   private static readonly MIN_DESCRIPTION_LENGTH = 10
+  private readonly category: Category
+  private readonly summary: string
+  private readonly description: string
 
-  constructor(
-    private readonly category: Category,
-    private readonly summary: string,
-    private readonly description: string,
-  ) {
+  constructor(params: {
+    category: Category
+    summary: string
+    description: string
+  }) {
+    const { category, summary, description } = params
+    this.category = category
+    this.summary = summary
+    this.description = description
+
     if (!summary || summary.trim().length === 0) {
       throw new Error("Summary cannot be empty")
     }

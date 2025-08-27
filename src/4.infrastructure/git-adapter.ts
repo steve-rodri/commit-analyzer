@@ -82,12 +82,13 @@ export class GitAdapter implements IVersionControlService {
     }
   }
 
-  async getUserAuthoredCommits(
-    authorEmail: string,
-    limit?: number,
-    since?: string,
-    until?: string,
-  ): Promise<string[]> {
+  async getUserAuthoredCommits(params: {
+    authorEmail: string
+    limit?: number
+    since?: string
+    until?: string
+  }): Promise<string[]> {
+    const { authorEmail, limit, since, until } = params
     try {
       const limitFlag = limit ? `--max-count=${limit}` : ""
       const sinceFlag = since ? `--since="${since}"` : ""

@@ -162,19 +162,19 @@ export class JSONProgressTracker implements IProgressRepository {
 
     return data.map((item: Record<string, unknown>) => {
       const hash = CommitHash.create(item.hash as string)
-      const commit = new Commit(
+      const commit = new Commit({
         hash,
-        item.message as string,
-        new Date(item.date as string),
-        "", // We don't store diff in progress, so use empty string
-      )
+        message: item.message as string,
+        date: new Date(item.date as string),
+        diff: "", // We don't store diff in progress, so use empty string
+      })
 
       const category = Category.create(item.category as string)
-      const analysis = new Analysis(
+      const analysis = new Analysis({
         category,
-        item.summary as string,
-        item.description as string,
-      )
+        summary: item.summary as string,
+        description: item.description as string,
+      })
 
       return new AnalyzedCommit(commit, analysis)
     })

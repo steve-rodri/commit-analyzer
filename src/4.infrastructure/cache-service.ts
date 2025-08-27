@@ -94,11 +94,11 @@ export class CacheService {
 
       // Reconstruct Analysis object
       const category = Category.create(entry.analysis.category as CategoryType)
-      return new Analysis(
+      return new Analysis({
         category,
-        entry.analysis.summary,
-        entry.analysis.description
-      )
+        summary: entry.analysis.summary,
+        description: entry.analysis.description,
+      })
     } catch {
       // Cache miss or error - return null
       return null

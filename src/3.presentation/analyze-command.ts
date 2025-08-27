@@ -62,20 +62,20 @@ export class AnalyzeCommand {
 
   private async fetchUserCommits(options: AnalyzeCommandOptions) {
     if (options.author) {
-      const userCommits = await this.commitRepository.getByAuthor(
-        options.author,
-        options.limit,
-        options.since,
-        options.until,
-      )
+      const userCommits = await this.commitRepository.getByAuthor({
+        authorEmail: options.author,
+        limit: options.limit,
+        since: options.since,
+        until: options.until,
+      })
       return { userEmail: options.author, userCommits }
     }
     const userEmail = await this.commitRepository.getCurrentUserEmail()
-    const userCommits = await this.commitAnalysisService.getCurrentUserCommits(
-      options.limit,
-      options.since,
-      options.until,
-    )
+    const userCommits = await this.commitAnalysisService.getCurrentUserCommits({
+      limit: options.limit,
+      since: options.since,
+      until: options.until,
+    })
     return { userEmail, userCommits }
   }
 

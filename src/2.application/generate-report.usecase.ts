@@ -67,12 +67,12 @@ export class GenerateReportUseCase
 
     // Generate and save the report
     ConsoleFormatter.logInfo("Generating condensed report...")
-    await this.generateMarkdownReportWithLLM(
+    await this.generateMarkdownReportWithLLM({
       commits,
       statistics,
       outputPath,
       includeStatistics,
-    )
+    })
 
     ConsoleFormatter.logSuccess(`Report generated: ${outputPath}`)
 
@@ -83,12 +83,13 @@ export class GenerateReportUseCase
     }
   }
 
-  private async generateMarkdownReportWithLLM(
-    commits: AnalyzedCommit[],
-    statistics: CommitStatistics,
-    outputPath: string,
-    includeStatistics: boolean,
-  ): Promise<void> {
+  private async generateMarkdownReportWithLLM(params: {
+    commits: AnalyzedCommit[]
+    statistics: CommitStatistics
+    outputPath: string
+    includeStatistics: boolean
+  }): Promise<void> {
+    const { commits, statistics, outputPath, includeStatistics } = params
     let reportContent = "# Development Summary Report\n\n"
 
     if (includeStatistics) {
@@ -99,9 +100,8 @@ export class GenerateReportUseCase
     // Generate sophisticated yearly summaries using LLM
     reportContent += await this.generateYearlySummariesWithLLM(commits)
 
-    // Write the final report
-    const fs = await import("fs/promises")
-    await fs.writeFile(outputPath, reportContent, "utf-8")
+    // Write the final report using the storage repository
+    await this.storageRepository.writeFile(outputPath, reportContent)
   }
 
   /**
@@ -148,21 +148,27 @@ export class GenerateReportUseCase
   }
 
   /**
-   * Generate sophisticated yearly summaries using LLM service (restored from original)
+   * Generate sophisticated time-period-based summaries using LLM service
    */
   private async generateYearlySummariesWithLLM(
     commits: AnalyzedCommit[],
   ): Promise<string> {
-    // Convert commits to CSV format for LLM consumption
-    const csvContent = this.reportGenerationService.convertToCSVString(commits)
+    // Determine the appropriate time period for the report
+    const timePeriod = this.reportGenerationService.determineTimePeriod(commits)
+    
+    // Group commits by the determined time period
+    const groupedCommits = this.reportGenerationService.groupByTimePeriod(commits, timePeriod)
+    
+    // Convert grouped commits to CSV format for LLM consumption
+    const csvContent = this.reportGenerationService.convertGroupedToCSV(groupedCommits, timePeriod)
 
     try {
-      // Use the LLM service to generate sophisticated yearly summaries
-      const yearlyContent = await this.llmService.generateYearlySummariesFromCSV(csvContent)
-      return yearlyContent
+      // Use the LLM service to generate sophisticated time-period-based summaries
+      const summaryContent = await this.llmService.generateTimePeriodSummariesFromCSV(csvContent, timePeriod)
+      return summaryContent
     } catch (error) {
       throw new Error(
-        `Failed to generate yearly summaries: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Failed to generate ${timePeriod} summaries: ${error instanceof Error ? error.message : "Unknown error"}`,
       )
     }
   }

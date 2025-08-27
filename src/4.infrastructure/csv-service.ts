@@ -140,20 +140,20 @@ export class CSVService {
     const placeholderDiff = "# Placeholder diff for CSV import\n+1\n-0" // Minimal valid diff
     const placeholderMessage = summary // Use summary as message
 
-    const commit = new Commit(
-      placeholderHash,
-      placeholderMessage,
-      placeholderDate,
-      placeholderDiff,
-    )
+    const commit = new Commit({
+      hash: placeholderHash,
+      message: placeholderMessage,
+      date: placeholderDate,
+      diff: placeholderDiff,
+    })
 
     // Create analysis from CSV data
     const analysisCategory = Category.create(category)
-    const analysis = new Analysis(
-      analysisCategory,
-      summary.trim(),
-      description.trim(),
-    )
+    const analysis = new Analysis({
+      category: analysisCategory,
+      summary: summary.trim(),
+      description: description.trim(),
+    })
 
     return new AnalyzedCommit(commit, analysis)
   }

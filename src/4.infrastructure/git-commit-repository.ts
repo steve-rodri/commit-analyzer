@@ -12,27 +12,28 @@ export class GitCommitRepository implements ICommitRepository {
       hash.getValue(),
     )
 
-    return new Commit(
+    return new Commit({
       hash,
-      commitInfo.message,
-      commitInfo.date,
-      commitInfo.diff,
-    )
+      message: commitInfo.message,
+      date: commitInfo.date,
+      diff: commitInfo.diff,
+    })
   }
 
-  async getByAuthor(
-    authorEmail: string, 
-    limit?: number,
-    since?: string,
+  async getByAuthor(params: {
+    authorEmail: string
+    limit?: number
+    since?: string
     until?: string
-  ): Promise<Commit[]> {
+  }): Promise<Commit[]> {
+    const { authorEmail, limit, since, until } = params
     const commitHashes =
-      await this.versionControlService.getUserAuthoredCommits(
+      await this.versionControlService.getUserAuthoredCommits({
         authorEmail,
         limit,
         since,
         until,
-      )
+      })
     const commits: Commit[] = []
 
     for (const hashString of commitHashes) {

@@ -149,6 +149,98 @@ export class ReportGenerationService {
   }
 
   /**
+   * Determines the appropriate time period for summaries based on date range
+   */
+  determineTimePeriod(commits: AnalyzedCommit[]): 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' {
+    if (commits.length === 0) return 'yearly'
+
+    const dates = commits.map(c => c.getDate())
+    const minDate = new Date(Math.min(...dates.map(d => d.getTime())))
+    const maxDate = new Date(Math.max(...dates.map(d => d.getTime())))
+    
+    const diffInMilliseconds = maxDate.getTime() - minDate.getTime()
+    const diffInDays = diffInMilliseconds / (1000 * 60 * 60 * 24)
+
+    if (diffInDays <= 1) return 'daily'
+    if (diffInDays <= 7) return 'weekly'
+    if (diffInDays <= 31) return 'monthly'
+    if (diffInDays <= 93) return 'quarterly' // ~3 months
+    return 'yearly'
+  }
+
+  /**
+   * Groups commits by the appropriate time period
+   */
+  groupByTimePeriod(commits: AnalyzedCommit[], period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Map<string, AnalyzedCommit[]> {
+    const grouped = new Map<string, AnalyzedCommit[]>()
+
+    for (const commit of commits) {
+      const date = commit.getDate()
+      let key: string
+
+      switch (period) {
+        case 'daily':
+          key = this.formatDailyKey(date)
+          break
+        case 'weekly':
+          key = this.formatWeeklyKey(date)
+          break
+        case 'monthly':
+          key = this.formatMonthlyKey(date)
+          break
+        case 'quarterly':
+          key = this.formatQuarterlyKey(date)
+          break
+        case 'yearly':
+        default:
+          key = date.getFullYear().toString()
+          break
+      }
+
+      if (!grouped.has(key)) {
+        grouped.set(key, [])
+      }
+      grouped.get(key)!.push(commit)
+    }
+
+    return grouped
+  }
+
+  private formatDailyKey(date: Date): string {
+    const year = date.getFullYear()
+    const month = date.getMonth() + 1
+    const day = date.getDate()
+    const hour = date.getHours()
+
+    if (hour < 12) return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')} Morning`
+    if (hour < 17) return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')} Afternoon`
+    return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')} Evening`
+  }
+
+  private formatWeeklyKey(date: Date): string {
+    const startOfWeek = new Date(date)
+    startOfWeek.setDate(date.getDate() - date.getDay())
+    const endOfWeek = new Date(startOfWeek)
+    endOfWeek.setDate(startOfWeek.getDate() + 6)
+
+    const formatDate = (d: Date) => 
+      `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`
+
+    return `Week of ${formatDate(startOfWeek)} to ${formatDate(endOfWeek)}`
+  }
+
+  private formatMonthlyKey(date: Date): string {
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                   'July', 'August', 'September', 'October', 'November', 'December']
+    return `${months[date.getMonth()]} ${date.getFullYear()}`
+  }
+
+  private formatQuarterlyKey(date: Date): string {
+    const quarter = Math.floor(date.getMonth() / 3) + 1
+    return `Q${quarter} ${date.getFullYear()}`
+  }
+
+  /**
    * Converts analyzed commits to CSV string format for LLM consumption
    */
   convertToCSVString(commits: AnalyzedCommit[]): string {
@@ -162,6 +254,28 @@ export class ReportGenerationService {
         this.escapeCsvField(analysis.getDescription()),
       ].join(",")
     })
+
+    return [header, ...rows].join("\n")
+  }
+
+  /**
+   * Converts grouped commits to CSV with time period information
+   */
+  convertGroupedToCSV(groupedCommits: Map<string, AnalyzedCommit[]>, period: string): string {
+    const header = `${period},category,summary,description`
+    const rows: string[] = []
+    
+    for (const [timePeriod, commits] of groupedCommits) {
+      for (const commit of commits) {
+        const analysis = commit.getAnalysis()
+        rows.push([
+          this.escapeCsvField(timePeriod),
+          this.escapeCsvField(analysis.getCategory().getValue()),
+          this.escapeCsvField(analysis.getSummary()),
+          this.escapeCsvField(analysis.getDescription()),
+        ].join(","))
+      }
+    }
 
     return [header, ...rows].join("\n")
   }

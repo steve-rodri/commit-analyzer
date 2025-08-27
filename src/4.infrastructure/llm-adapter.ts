@@ -184,7 +184,11 @@ Do not include any other text outside the JSON code block.`
   }
 
   async generateYearlySummariesFromCSV(csvContent: string): Promise<string> {
-    const prompt = this.buildReportPrompt(csvContent)
+    return this.generateTimePeriodSummariesFromCSV(csvContent, 'yearly')
+  }
+
+  async generateTimePeriodSummariesFromCSV(csvContent: string, period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<string> {
+    const prompt = this.buildTimePeriodReportPrompt(csvContent, period)
     let lastError: Error | null = null
 
     if (!this.retryEnabled) {
@@ -288,6 +292,101 @@ QUALITY REQUIREMENTS:
 - Make the report valuable for both technical and non-technical readers
 
 Generate the markdown report now:`
+  }
+
+  private buildTimePeriodReportPrompt(csvContent: string, period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): string {
+    const timeColumn = period === 'yearly' ? 'year' : period.toLowerCase()
+    const periodDisplayName = this.getPeriodDisplayName(period)
+    const sectionHeader = this.getSectionHeader(period)
+    
+    return `Analyze the following CSV data containing git commit analysis results and generate a condensed markdown development summary report.
+
+CSV DATA:
+${csvContent}
+
+INSTRUCTIONS:
+1. Group the data by ${periodDisplayName} (descending order, most recent first)
+2. Within each ${periodDisplayName.toLowerCase()}, group by category: Features, Process Improvements, and Tweaks & Bug Fixes
+3. Consolidate similar items within each category to create readable summaries
+4. Focus on what was accomplished rather than individual commit details
+5. Use clear, professional language appropriate for stakeholders
+6. Only include sections for time periods that have commits
+
+CATEGORY MAPPING:
+- "feature" → "Features" section
+- "process" → "Processes" section  
+- "tweak" → "Tweaks & Bug Fixes" section
+
+CONSOLIDATION GUIDELINES:
+- Group similar features together (e.g., "authentication system improvements")
+- Combine related bug fixes (e.g., "resolved 8 authentication issues")
+- Summarize process changes by theme (e.g., "CI/CD pipeline enhancements")
+- Use bullet points for individual items within categories
+- Aim for 3-7 bullet points per category per ${periodDisplayName.toLowerCase()}
+- Include specific numbers when relevant (e.g., "15 bug fixes", "3 new features")
+
+OUTPUT FORMAT:
+Generate ${periodDisplayName.toLowerCase()} summary sections with this exact structure (DO NOT include the main title or commit analysis section):
+
+\`\`\`markdown
+${sectionHeader}
+### Features
+- [Consolidated feature summary 1]
+- [Consolidated feature summary 2]
+- [Additional features as needed]
+
+### Processes
+- [Consolidated process improvement 1]
+- [Consolidated process improvement 2]
+- [Additional process items as needed]
+
+### Tweaks & Bug Fixes
+- [Consolidated tweak/fix summary 1]
+- [Consolidated tweak/fix summary 2]
+- [Additional tweaks/fixes as needed]
+
+${this.getPreviousPeriodExample(period)}
+[Repeat structure for each ${periodDisplayName.toLowerCase()} in the data]
+\`\`\`
+
+QUALITY REQUIREMENTS:
+- Keep summaries concise but informative
+- Use active voice and clear language
+- Avoid technical jargon where possible
+- Ensure each bullet point represents meaningful work
+- Make the report valuable for both technical and non-technical readers
+
+Generate the markdown report now:`
+  }
+
+  private getPeriodDisplayName(period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): string {
+    switch (period) {
+      case 'daily': return 'Daily Period'
+      case 'weekly': return 'Week'
+      case 'monthly': return 'Month'
+      case 'quarterly': return 'Quarter'
+      case 'yearly': return 'Year'
+    }
+  }
+
+  private getSectionHeader(period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): string {
+    switch (period) {
+      case 'daily': return '## [DATE] [TIME_OF_DAY]'
+      case 'weekly': return '## [WEEK_RANGE]'
+      case 'monthly': return '## [MONTH] [YEAR]'
+      case 'quarterly': return '## [QUARTER] [YEAR]'
+      case 'yearly': return '## [YEAR]'
+    }
+  }
+
+  private getPreviousPeriodExample(period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): string {
+    switch (period) {
+      case 'daily': return '## [PREVIOUS_DATE] [TIME_OF_DAY]'
+      case 'weekly': return '## [PREVIOUS_WEEK_RANGE]'
+      case 'monthly': return '## [PREVIOUS_MONTH] [YEAR]'
+      case 'quarterly': return '## [PREVIOUS_QUARTER] [YEAR]'
+      case 'yearly': return '## [PREVIOUS_YEAR]'
+    }
   }
 
   private parseReportResponse(response: string): string {

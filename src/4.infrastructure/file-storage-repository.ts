@@ -40,6 +40,10 @@ export class FileStorageRepository implements IStorageRepository {
     await this.storageService.ensureDirectory(directoryPath)
   }
 
+  async writeFile(filePath: string, content: string): Promise<void> {
+    await this.storageService.writeFile(filePath, content)
+  }
+
   private generateMarkdownReport(commits: AnalyzedCommit[]): string {
     let content = "# Development Summary Report\n\n"
 

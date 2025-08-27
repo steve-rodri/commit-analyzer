@@ -24,8 +24,8 @@ export interface CLIOptions {
 }
 
 export class CLIApplication {
-  private static readonly DEFAULT_COMMITS_OUTPUT_FILE = "commits.csv"
-  private static readonly DEFAULT_REPORT_OUTPUT_FILE = "reports.md"
+  private static readonly DEFAULT_COMMITS_OUTPUT_FILE = "results/commits.csv"
+  private static readonly DEFAULT_REPORT_OUTPUT_FILE = "results/report.md"
   private static readonly DEFAULT_VERSION = "1.0.3"
 
   constructor(private readonly controller: CommitAnalysisController) {}
@@ -173,9 +173,13 @@ export class CLIApplication {
       })
 
       if (resumed && options.report) {
+        const reportOutput = options.output 
+          ? this.getReportOutputPath(options.output)
+          : CLIApplication.DEFAULT_REPORT_OUTPUT_FILE
+          
         await this.controller.handleReportGeneration({
           inputCsv: options.output,
-          output: this.getReportOutputPath(options.output!),
+          output: reportOutput,
         })
       }
       return
@@ -195,8 +199,12 @@ export class CLIApplication {
 
     if (options.report) {
       // Analysis + Report workflow
+      const reportOutput = options.output 
+        ? this.getReportOutputPath(options.output)
+        : CLIApplication.DEFAULT_REPORT_OUTPUT_FILE
+      
       await this.controller.handleAnalysisWithReport(analyzeOptions, {
-        output: this.getReportOutputPath(options.output!),
+        output: reportOutput,
       })
     } else {
       // Analysis only workflow
@@ -220,12 +228,17 @@ export class CLIApplication {
       return outputOption
     }
     if (outputDir) {
-      return `${outputDir}/${CLIApplication.DEFAULT_COMMITS_OUTPUT_FILE}`
+      return `${outputDir}/commits.csv`
     }
     return CLIApplication.DEFAULT_COMMITS_OUTPUT_FILE
   }
 
   private getReportOutputPath(csvPath: string): string {
+    // If no specific output path provided, use the default report path
+    if (!csvPath) {
+      return CLIApplication.DEFAULT_REPORT_OUTPUT_FILE
+    }
+    
     if (csvPath.endsWith(".csv")) {
       return csvPath.replace(".csv", ".md")
     }
