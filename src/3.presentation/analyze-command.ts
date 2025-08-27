@@ -19,6 +19,7 @@ export interface AnalyzeCommandOptions {
   verbose?: boolean
   since?: string
   until?: string
+  batchSize?: number
 }
 
 export class AnalyzeCommand {
@@ -89,6 +90,7 @@ export class AnalyzeCommand {
       commitHashes,
       outputFile: options.output,
       verbose: options.verbose,
+      batchSize: options.batchSize,
     })
   }
 

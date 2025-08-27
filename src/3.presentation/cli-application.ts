@@ -20,6 +20,7 @@ export interface CLIOptions {
   since?: string
   until?: string
   noCache?: boolean
+  batchSize?: number
 }
 
 export class CLIApplication {
@@ -92,6 +93,11 @@ export class CLIApplication {
         "--no-cache",
         "Disable caching of analysis results",
       )
+      .option(
+        "--batch-size <number>",
+        "Number of commits to process per batch (default: 1 for sequential processing)",
+        parseInt,
+      )
       .argument(
         "[commits...]",
         "Commit hashes to analyze (if none provided, uses current user's commits)",
@@ -126,6 +132,7 @@ export class CLIApplication {
       since: this.getStringOption(options.since),
       until: this.getStringOption(options.until),
       noCache: this.getBooleanOption(options.noCache),
+      batchSize: this.getNumberOption(options.batchSize),
     }
   }
 
@@ -183,6 +190,7 @@ export class CLIApplication {
       verbose: options.verbose,
       since: options.since,
       until: options.until,
+      batchSize: options.batchSize,
     }
 
     if (options.report) {
