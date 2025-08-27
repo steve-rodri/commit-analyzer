@@ -1,4 +1,5 @@
 import { CommitAnalysisService } from "@domain/commit-analysis-service"
+import { DateFormattingService } from "@domain/date-formatting-service"
 import { ReportGenerationService } from "@domain/report-generation-service"
 
 import { AnalyzeCommitsUseCase } from "@app/analyze-commits.usecase"
@@ -11,8 +12,8 @@ import { CommitAnalysisController } from "@presentation/commit-analysis-controll
 import { ReportCommand } from "@presentation/report-command"
 import { ResumeCommand } from "@presentation/resume-command"
 
-import { CachedAnalysisRepository } from "@infra/cached-analysis-repository"
 import { CacheService } from "@infra/cache-service"
+import { CachedAnalysisRepository } from "@infra/cached-analysis-repository"
 import { FileStorageRepository } from "@infra/file-storage-repository"
 import { FileSystemStorageAdapter } from "@infra/file-system-storage-adapter"
 import { GitAdapter } from "@infra/git-adapter"
@@ -47,7 +48,10 @@ export class DIContainer {
   )
   private readonly analysisRepository = this.options?.noCache
     ? this.llmAnalysisRepository
-    : new CachedAnalysisRepository(this.llmAnalysisRepository, this.cacheService)
+    : new CachedAnalysisRepository(
+        this.llmAnalysisRepository,
+        this.cacheService,
+      )
   private readonly storageRepository = new FileStorageRepository(
     this.storageAdapter,
   )
@@ -57,6 +61,7 @@ export class DIContainer {
     this.analysisRepository,
   )
   private readonly reportGenerationService = new ReportGenerationService()
+  private readonly dateFormattingService = new DateFormattingService()
 
   private readonly analyzeCommitsUseCase = new AnalyzeCommitsUseCase(
     this.commitAnalysisService,
@@ -68,6 +73,7 @@ export class DIContainer {
     this.reportGenerationService,
     this.storageRepository,
     this.llmAdapter,
+    this.dateFormattingService,
   )
 
   private readonly resumeAnalysisUseCase = new ResumeAnalysisUseCase(
@@ -88,6 +94,8 @@ export class DIContainer {
     this.reportCommand,
     this.resumeCommand,
     this.progressTracker,
+    this.cacheService,
+    this.commitRepository,
   )
 
   private readonly application = new CLIApplication(this.controller)
@@ -98,4 +106,3 @@ export class DIContainer {
     return this.application
   }
 }
-

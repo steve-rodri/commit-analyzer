@@ -53,7 +53,7 @@ export class ClaudeLLMAdapter extends LLMAdapter {
     try {
       // First try standard JSON parsing
       return super.parseResponse(response)
-    } catch (error) {
+    } catch {
       // Claude often responds in natural language format, so try to parse that
       if (this.verbose) {
         console.log(`  - Standard JSON parsing failed, trying Claude natural language parsing...`)

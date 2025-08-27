@@ -295,7 +295,6 @@ Generate the markdown report now:`
   }
 
   private buildTimePeriodReportPrompt(csvContent: string, period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): string {
-    const timeColumn = period === 'yearly' ? 'year' : period.toLowerCase()
     const periodDisplayName = this.getPeriodDisplayName(period)
     const sectionHeader = this.getSectionHeader(period)
     

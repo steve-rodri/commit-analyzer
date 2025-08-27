@@ -1,12 +1,13 @@
 import { AnalyzedCommit } from "@domain/analyzed-commit"
+import { DateFormattingService } from "@domain/date-formatting-service"
 import {
   CommitStatistics,
   ReportGenerationService,
 } from "@domain/report-generation-service"
 
 import { ICommandHandler } from "@presentation/command-handler.interface"
-import { ConsoleFormatter } from "@presentation/console-formatter"
 import { IStorageRepository } from "@presentation/storage-repository.interface"
+
 import { ILLMService } from "./llm-service"
 
 export interface GenerateReportCommand {
@@ -14,6 +15,10 @@ export interface GenerateReportCommand {
   analyzedCommits?: AnalyzedCommit[]
   outputPath: string
   includeStatistics?: boolean
+  sourceInfo?: {
+    type: 'author' | 'commits' | 'csv'
+    value: string // email address, commit hashes, or csv file path
+  }
 }
 
 export interface GenerateReportResult {
@@ -29,6 +34,7 @@ export class GenerateReportUseCase
     private readonly reportGenerationService: ReportGenerationService,
     private readonly storageRepository: IStorageRepository,
     private readonly llmService: ILLMService,
+    private readonly dateFormattingService: DateFormattingService,
   ) {}
 
   async handle(command: GenerateReportCommand): Promise<GenerateReportResult> {
@@ -43,7 +49,7 @@ export class GenerateReportUseCase
 
     // Get commits from either CSV file or provided commits
     if (inputCsvPath) {
-      ConsoleFormatter.logInfo(`Reading CSV data from ${inputCsvPath}...`)
+      console.log(`Reading CSV data from ${inputCsvPath}...`)
       commits = await this.storageRepository.importFromCSV(inputCsvPath)
     } else if (analyzedCommits) {
       commits = analyzedCommits
@@ -58,23 +64,25 @@ export class GenerateReportUseCase
     // Generate statistics
     const statistics = this.reportGenerationService.generateStatistics(commits)
 
-    ConsoleFormatter.logInfo(
-      `Found ${statistics.totalCommits} commits spanning ${statistics.yearRange.min}-${statistics.yearRange.max}`,
+    // Format date range based on commit span
+    const dateRange = this.dateFormattingService.formatDateRange(commits)
+
+    console.log(
+      `Found ${statistics.totalCommits} commits spanning ${dateRange}`,
     )
-    ConsoleFormatter.logInfo(
+    console.log(
       `Categories: ${statistics.categoryBreakdown.feature} features, ${statistics.categoryBreakdown.process} process, ${statistics.categoryBreakdown.tweak} tweaks`,
     )
 
     // Generate and save the report
-    ConsoleFormatter.logInfo("Generating condensed report...")
+    console.log("Generating condensed report...")
     await this.generateMarkdownReportWithLLM({
       commits,
       statistics,
       outputPath,
       includeStatistics,
+      sourceInfo: command.sourceInfo,
     })
-
-    ConsoleFormatter.logSuccess(`Report generated: ${outputPath}`)
 
     return {
       reportPath: outputPath,
@@ -88,12 +96,13 @@ export class GenerateReportUseCase
     statistics: CommitStatistics
     outputPath: string
     includeStatistics: boolean
+    sourceInfo?: { type: 'author' | 'commits' | 'csv'; value: string }
   }): Promise<void> {
-    const { commits, statistics, outputPath, includeStatistics } = params
+    const { commits, statistics, outputPath, includeStatistics, sourceInfo } = params
     let reportContent = "# Development Summary Report\n\n"
 
     if (includeStatistics) {
-      reportContent += this.generateAnalysisSection(commits, statistics)
+      reportContent += this.generateAnalysisSection(commits, statistics, sourceInfo)
       reportContent += "\n\n"
     }
 
@@ -110,7 +119,10 @@ export class GenerateReportUseCase
   private generateAnalysisSection(
     commits: AnalyzedCommit[],
     statistics: CommitStatistics,
+    sourceInfo?: { type: 'author' | 'commits' | 'csv'; value: string }
   ): string {
+    // Get formatted date range using the date formatting service
+    const dateRange = this.dateFormattingService.formatDateRange(commits)
     // Group data by year for detailed breakdown
     const yearlyStats = commits.reduce(
       (acc, commit) => {
@@ -136,7 +148,24 @@ export class GenerateReportUseCase
       .sort((a, b) => b - a)
 
     let analysisContent = `## Commit Analysis\n`
-    analysisContent += `- **Total Commits**: ${statistics.totalCommits} commits across ${statistics.yearRange.min}-${statistics.yearRange.max}\n`
+    analysisContent += `- **Total Commits**: ${statistics.totalCommits} commits spanning ${dateRange}\n`
+    
+    // Add source information
+    if (sourceInfo) {
+      switch (sourceInfo.type) {
+        case 'author':
+          analysisContent += `- **Source**: Commits by author ${sourceInfo.value}\n`
+          break
+        case 'commits': {
+          const commitCount = sourceInfo.value.split(',').length
+          analysisContent += `- **Source**: ${commitCount} specific commit${commitCount > 1 ? 's' : ''}\n`
+          break
+        }
+        case 'csv':
+          analysisContent += `- **Source**: Imported from ${sourceInfo.value}\n`
+          break
+      }
+    }
 
     // Add year-by-year breakdown
     for (const year of sortedYears) {

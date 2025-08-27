@@ -103,4 +103,27 @@ export class ConsoleFormatter {
       this.logInfo(`${category}: ${count} commits`)
     })
   }
+
+  /**
+   * Update progress bar inline
+   */
+  static updateProgress(current: number, total: number, description?: string): void {
+    const percentage = Math.round((current / total) * 100)
+    const completed = Math.round((current / total) * 20) // 20 characters for progress bar
+    const remaining = 20 - completed
+    
+    const progressBar = '█'.repeat(completed) + '░'.repeat(remaining)
+    const desc = description ? ` ${description}` : ''
+    
+    // Use \r to overwrite the line
+    process.stdout.write(`\r▶️  [${progressBar}] ${percentage}% (${current}/${total})${desc}`)
+  }
+
+  /**
+   * Complete progress and clear the line
+   */
+  static completeProgress(): void {
+    // Clear the current line and move to beginning
+    process.stdout.write('\r\x1b[K')
+  }
 }

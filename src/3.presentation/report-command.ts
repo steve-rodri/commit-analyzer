@@ -2,37 +2,39 @@ import { GenerateReportUseCase } from "@app/generate-report.usecase"
 
 import { ConsoleFormatter } from "./console-formatter"
 
-/**
- * CLI command for generating reports
- */
 export interface ReportCommandOptions {
   inputCsv?: string
   output: string
   includeStatistics?: boolean
+  sourceInfo?: {
+    type: "author" | "commits" | "csv"
+    value: string
+  }
 }
 
-/**
- * Report command implementation
- */
 export class ReportCommand {
   constructor(private readonly generateReportUseCase: GenerateReportUseCase) {}
 
   async execute(options: ReportCommandOptions): Promise<void> {
     try {
-      ConsoleFormatter.logInfo("Generating report from existing CSV...")
+      console.log("\nGenerating report from existing CSV...")
 
       const result = await this.generateReportUseCase.handle({
         inputCsvPath: options.inputCsv,
         outputPath: options.output,
         includeStatistics: options.includeStatistics ?? true,
+        sourceInfo:
+          options.sourceInfo ||
+          (options.inputCsv
+            ? { type: "csv", value: options.inputCsv }
+            : undefined),
       })
 
       ConsoleFormatter.logReport(`Report generated: ${result.reportPath}`)
 
-      // Display statistics
       const stats = result.statistics
       ConsoleFormatter.logSuccess(
-        `Processed ${result.commitsProcessed} commits spanning ${stats.yearRange.min}-${stats.yearRange.max}`,
+        `Processed ${result.commitsProcessed} commits`,
       )
 
       ConsoleFormatter.logInfo(

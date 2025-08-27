@@ -2,16 +2,10 @@ import { ResumeAnalysisUseCase } from "@app/resume-analysis.usecase"
 
 import { ConsoleFormatter } from "./console-formatter"
 
-/**
- * CLI command for resuming analysis
- */
 export interface ResumeCommandOptions {
   verbose?: boolean
 }
 
-/**
- * Resume command implementation
- */
 export class ResumeCommand {
   constructor(private readonly resumeAnalysisUseCase: ResumeAnalysisUseCase) {}
 

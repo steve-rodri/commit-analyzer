@@ -162,6 +162,7 @@ export class CLIApplication {
       await this.controller.handleReportGeneration({
         inputCsv: options.inputCsv,
         output: options.output || CLIApplication.DEFAULT_REPORT_OUTPUT_FILE,
+        sourceInfo: { type: 'csv', value: options.inputCsv }
       })
       return
     }
@@ -180,6 +181,7 @@ export class CLIApplication {
         await this.controller.handleReportGeneration({
           inputCsv: options.output,
           output: reportOutput,
+          sourceInfo: { type: 'csv', value: options.output || CLIApplication.DEFAULT_COMMITS_OUTPUT_FILE }
         })
       }
       return
@@ -205,6 +207,9 @@ export class CLIApplication {
       
       await this.controller.handleAnalysisWithReport(analyzeOptions, {
         output: reportOutput,
+        sourceInfo: options.commits.length > 0 
+          ? { type: 'commits', value: options.commits.join(',') }
+          : { type: 'author', value: options.author || 'current user' }
       })
     } else {
       // Analysis only workflow
@@ -239,8 +244,10 @@ export class CLIApplication {
       return CLIApplication.DEFAULT_REPORT_OUTPUT_FILE
     }
     
+    // Extract directory from CSV path and use report.md as filename
     if (csvPath.endsWith(".csv")) {
-      return csvPath.replace(".csv", ".md")
+      const dir = csvPath.substring(0, csvPath.lastIndexOf('/'))
+      return dir ? `${dir}/report.md` : "report.md"
     }
     return csvPath + ".md"
   }

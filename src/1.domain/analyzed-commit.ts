@@ -58,13 +58,13 @@ export class AnalyzedCommit {
   }
 
   toCSVRow(): {
-    year: number
+    timestamp: string
     category: string
     summary: string
     description: string
   } {
     return {
-      year: this.getYear(),
+      timestamp: this.getDate().toISOString(),
       category: this.analysis.getCategory().getValue(),
       summary: this.analysis.getSummary(),
       description: this.analysis.getDescription(),

@@ -73,7 +73,7 @@ export class AnalyzeCommitsUseCase
     const processedCommits: CommitHash[] = []
     let failedCommits = 0
 
-    ConsoleFormatter.logInfo(`\nAnalyzing ${valid.length} commits...`)
+    ConsoleFormatter.logInfo(`Analyzing ${valid.length} commits...`)
 
     if (batchSize === 1) {
       // Sequential processing for batch size 1
@@ -81,9 +81,13 @@ export class AnalyzeCommitsUseCase
         const hash = valid[i]
         const currentIndex = i + 1
 
-        ConsoleFormatter.logInfo(
-          `\n[${currentIndex}/${valid.length}] Processing commit: ${hash.getShortHash()}`,
-        )
+        if (verbose) {
+          ConsoleFormatter.logInfo(
+            `[${currentIndex}/${valid.length}] Processing: ${hash.getShortHash()}`,
+          )
+        } else {
+          ConsoleFormatter.updateProgress(currentIndex, valid.length, `Processing commits`)
+        }
 
         try {
           const analyzedCommit =
@@ -92,9 +96,12 @@ export class AnalyzeCommitsUseCase
           processedCommits.push(hash)
 
           const analysis = analyzedCommit.getAnalysis()
-          ConsoleFormatter.logSuccess(
-            `  Analyzed as "${analysis.getCategory().getValue()}": ${analysis.getSummary()}`,
-          )
+          
+          if (verbose) {
+            ConsoleFormatter.logSuccess(
+              `✓ [${currentIndex}/${valid.length}] Analyzed as "${analysis.getCategory().getValue()}": ${analysis.getSummary()}`,
+            )
+          }
 
           // Save progress periodically
           if (
@@ -107,14 +114,20 @@ export class AnalyzeCommitsUseCase
               analyzedCommits,
               outputFile,
             )
-            ConsoleFormatter.logInfo(
-              `  Progress saved (${currentIndex}/${valid.length})`,
-            )
+            if (verbose) {
+              ConsoleFormatter.logInfo(
+                `Progress saved (${currentIndex}/${valid.length})`,
+              )
+            }
           }
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Unknown error"
-          ConsoleFormatter.logError(`  Failed: ${errorMessage}`)
+          
+          if (verbose) {
+            ConsoleFormatter.logError(`❌ [${currentIndex}/${valid.length}] Failed: ${errorMessage}`)
+          }
+          
           failedCommits++
           processedCommits.push(hash)
 
@@ -130,6 +143,10 @@ export class AnalyzeCommitsUseCase
             ConsoleFormatter.logError(`    Detailed error: ${errorMessage}`)
           }
         }
+      }
+      
+      if (!verbose) {
+        ConsoleFormatter.completeProgress()
       }
     } else {
       // Batch processing for batch size > 1
@@ -150,9 +167,6 @@ export class AnalyzeCommitsUseCase
     // Export results
     if (analyzedCommits.length > 0) {
       await this.storageRepository.exportToCSV(analyzedCommits, outputFile)
-      ConsoleFormatter.logSuccess(
-        `\nAnalysis complete! Results exported to ${outputFile}`,
-      )
     }
 
     return {
@@ -202,9 +216,13 @@ export class AnalyzeCommitsUseCase
       const batchStart = i + 1
       const batchEnd = Math.min(i + batchSize, commitHashes.length)
       
-      ConsoleFormatter.logInfo(
-        `\nProcessing batch ${batchStart}-${batchEnd}/${commitHashes.length} (${batch.length} commits)`,
-      )
+      if (verbose) {
+        ConsoleFormatter.logInfo(
+          `Processing batch ${batchStart}-${batchEnd}/${commitHashes.length} (${batch.length} commits)`,
+        )
+      } else {
+        ConsoleFormatter.updateProgress(batchStart, commitHashes.length, `Processing batch ${batchStart}-${batchEnd}`)
+      }
 
       // Process all commits in this batch with controlled concurrency
       const concurrencyManager = new ConcurrencyManager(AnalyzeCommitsUseCase.DEFAULT_MAX_CONCURRENCY)
@@ -214,23 +232,27 @@ export class AnalyzeCommitsUseCase
         
         return concurrencyManager.execute(async () => {
           try {
-            ConsoleFormatter.logInfo(
-              `  [${globalIndex}/${commitHashes.length}] Processing: ${hash.getShortHash()}`,
-            )
+            if (verbose) {
+              ConsoleFormatter.logInfo(
+                `  [${globalIndex}/${commitHashes.length}] Processing: ${hash.getShortHash()}`,
+              )
+            }
             
             const analyzedCommit = await this.commitAnalysisService.analyzeCommit(hash)
             const analysis = analyzedCommit.getAnalysis()
             
-            ConsoleFormatter.logSuccess(
-              `  [${globalIndex}/${commitHashes.length}] Analyzed as "${analysis.getCategory().getValue()}": ${analysis.getSummary()}`,
-            )
+            if (verbose) {
+              ConsoleFormatter.logSuccess(
+                `✓ [${globalIndex}/${commitHashes.length}] Analyzed as "${analysis.getCategory().getValue()}": ${analysis.getSummary()}`,
+              )
+            }
             
             return { success: true, commit: analyzedCommit, hash }
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Unknown error"
-            ConsoleFormatter.logError(`  [${globalIndex}/${commitHashes.length}] Failed: ${errorMessage}`)
             
             if (verbose) {
+              ConsoleFormatter.logError(`❌ [${globalIndex}/${commitHashes.length}] Failed: ${errorMessage}`)
               ConsoleFormatter.logError(`    Detailed error: ${errorMessage}`)
             }
             
@@ -264,10 +286,16 @@ export class AnalyzeCommitsUseCase
           analyzedCommits,
           outputFile,
         )
-        ConsoleFormatter.logInfo(
-          `  Progress saved (${processedCommits.length}/${commitHashes.length})`,
-        )
+        if (verbose) {
+          ConsoleFormatter.logInfo(
+            `Progress saved (${processedCommits.length}/${commitHashes.length})`,
+          )
+        }
       }
+    }
+
+    if (!verbose) {
+      ConsoleFormatter.completeProgress()
     }
 
     return {

@@ -7,7 +7,7 @@ import { CommitHash } from "@domain/commit-hash"
 import { IStorageService } from "@presentation/storage-service.interface"
 
 export class CSVService {
-  private static readonly CSV_HEADERS = "year,category,summary,description"
+  private static readonly CSV_HEADERS = "timestamp,category,summary,description"
   private static readonly CSV_SPECIAL_CHARS = [",", '"', "\n"]
 
   constructor(private readonly storageService: IStorageService) {}
@@ -36,13 +36,13 @@ export class CSVService {
   }
 
   private joinCsvFields(row: {
-    year: number
+    timestamp: string
     category: string
     summary: string
     description: string
   }): string {
     return [
-      row.year,
+      row.timestamp,
       this.escapeCsvField(row.category),
       this.escapeCsvField(row.summary),
       this.escapeCsvField(row.description),
@@ -73,7 +73,7 @@ export class CSVService {
 
     // Validate header
     const header = lines[0].toLowerCase()
-    const expectedHeader = "year,category,summary,description"
+    const expectedHeader = "timestamp,category,summary,description"
     if (header !== expectedHeader) {
       throw new Error(
         `Invalid CSV format. Expected header: "${expectedHeader}", got: "${header}"`,
@@ -103,16 +103,16 @@ export class CSVService {
 
     if (fields.length !== 4) {
       throw new Error(
-        `Expected 4 fields (year,category,summary,description), got ${fields.length}`,
+        `Expected 4 fields (timestamp,category,summary,description), got ${fields.length}`,
       )
     }
 
-    const [yearStr, category, summary, description] = fields
+    const [timestampStr, category, summary, description] = fields
 
-    // Validate year
-    const year = parseInt(yearStr, 10)
-    if (isNaN(year) || year < 1900 || year > 2100) {
-      throw new Error(`Invalid year: ${yearStr}`)
+    // Validate timestamp
+    const timestamp = new Date(timestampStr)
+    if (isNaN(timestamp.getTime())) {
+      throw new Error(`Invalid timestamp: ${timestampStr}`)
     }
 
     // Validate category
@@ -131,19 +131,18 @@ export class CSVService {
       throw new Error("Description field cannot be empty")
     }
 
-    // Create a minimal commit object for CSV import (since we don't have the actual git data)
-    // We'll use placeholder values for hash, date, and diff since they're not in the CSV
+    // Create a minimal commit object for CSV import
+    // We'll use placeholder values for hash and diff since they're not in the CSV
     const placeholderHash = CommitHash.create(
       "0000000000000000000000000000000000000000",
     )
-    const placeholderDate = new Date(year, 0, 1) // January 1st of the year
     const placeholderDiff = "# Placeholder diff for CSV import\n+1\n-0" // Minimal valid diff
     const placeholderMessage = summary // Use summary as message
 
     const commit = new Commit({
       hash: placeholderHash,
       message: placeholderMessage,
-      date: placeholderDate,
+      date: timestamp, // Use actual timestamp from CSV
       diff: placeholderDiff,
     })
 
