@@ -151,13 +151,31 @@ npx commit-analyzer --clear
 npx commit-analyzer --resume
 ```
 
-The checkpoint file (`.commit-analyzer-progress.json`) contains:
+The checkpoint file (`.commit-analyzer/progress.json`) contains:
 - List of all commits to process
 - Successfully processed commits (including failed ones to skip on resume)
 - Analyzed commit data (only successful ones)
 - Output file location
 
 **Important**: When a commit fails after all retries (default 3), the process stops immediately to prevent wasting API calls. The successfully analyzed commits up to that point are saved to the CSV file.
+
+### Application Data Directory
+
+The tool creates a `.commit-analyzer/` directory to store internal files:
+
+```
+.commit-analyzer/
+├── progress.json        # Progress checkpoint data
+└── cache/              # Cached analysis results
+    ├── commit-abc123.json
+    ├── commit-def456.json
+    └── ...
+```
+
+- **Progress checkpoint**: Enables resuming interrupted analysis sessions
+- **Analysis cache**: Stores LLM analysis results to avoid re-processing the same commits (TTL: 30 days)
+
+Use `--no-cache` to disable caching if needed.
 
 ### Retry Logic
 

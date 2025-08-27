@@ -24,6 +24,9 @@ export abstract class LLMAdapter implements ILLMService {
 
   protected model: string = ""
   protected verbose: boolean = false
+  protected retryEnabled: boolean = true
+
+  protected abstract getMaxPromptLength(): number
 
   abstract detectAvailableModels(): Promise<string[]>
   abstract isAvailable(): Promise<boolean>
@@ -42,6 +45,10 @@ export abstract class LLMAdapter implements ILLMService {
     this.verbose = verbose
   }
 
+  setRetryEnabled(enabled: boolean): void {
+    this.retryEnabled = enabled
+  }
+
   getMaxRetries(): number {
     return LLMAdapter.MAX_RETRIES
   }
@@ -56,6 +63,17 @@ export abstract class LLMAdapter implements ILLMService {
   }> {
     const prompt = this.buildPrompt(message, diff)
     let lastError: Error | null = null
+
+    if (!this.retryEnabled) {
+      try {
+        const output = await this.executeModelCommand(prompt)
+        return this.parseResponse(output)
+      } catch (error) {
+        throw new Error(
+          `Failed to analyze commit: ${error instanceof Error ? error.message : "Unknown error"}`,
+        )
+      }
+    }
 
     for (let attempt = 1; attempt <= LLMAdapter.MAX_RETRIES; attempt++) {
       try {
@@ -165,5 +183,46 @@ export abstract class LLMAdapter implements ILLMService {
 
   protected isValidCategory(category: string): category is CategoryType {
     return ["tweak", "feature", "process"].includes(category)
+  }
+
+  protected truncatePrompt(prompt: string): string {
+    const maxLength = this.getMaxPromptLength()
+    if (prompt.length <= maxLength) {
+      return prompt
+    }
+
+    // Find the diff section and truncate it
+    const diffStartIndex = prompt.indexOf("COMMIT DIFF:")
+    if (diffStartIndex === -1) {
+      return prompt
+    }
+
+    const beforeDiff = prompt.substring(0, diffStartIndex)
+    const afterDiffHeader = prompt.substring(diffStartIndex)
+    const diffHeaderEnd = afterDiffHeader.indexOf("\n") + 1
+    const diffHeader = afterDiffHeader.substring(0, diffHeaderEnd)
+    const diffContent = afterDiffHeader.substring(diffHeaderEnd)
+
+    // Calculate how much space we have for the diff
+    const overhead = beforeDiff.length + diffHeader.length + 500 // Leave some buffer
+    const maxDiffLength = Math.max(1000, maxLength - overhead)
+
+    if (diffContent.length > maxDiffLength) {
+      const truncatedDiff = diffContent.substring(0, maxDiffLength)
+      const truncationNotice =
+        "\n\n[DIFF TRUNCATED - Original length: " +
+        diffContent.length +
+        " characters]"
+
+      return (
+        beforeDiff +
+        diffHeader +
+        truncatedDiff +
+        truncationNotice +
+        "\n\nBased on the commit message and code changes, categorize this commit..."
+      )
+    }
+
+    return prompt
   }
 }

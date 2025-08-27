@@ -17,6 +17,8 @@ export interface AnalyzeCommandOptions {
   author?: string
   limit?: number
   verbose?: boolean
+  since?: string
+  until?: string
 }
 
 export class AnalyzeCommand {
@@ -62,12 +64,16 @@ export class AnalyzeCommand {
       const userCommits = await this.commitRepository.getByAuthor(
         options.author,
         options.limit,
+        options.since,
+        options.until,
       )
       return { userEmail: options.author, userCommits }
     }
     const userEmail = await this.commitRepository.getCurrentUserEmail()
     const userCommits = await this.commitAnalysisService.getCurrentUserCommits(
       options.limit,
+      options.since,
+      options.until,
     )
     return { userEmail, userCommits }
   }

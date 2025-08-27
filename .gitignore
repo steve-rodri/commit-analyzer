@@ -1,4 +1,4 @@
 node_modules
 dist
 output.csv
-.commit-analyzer-progress.json
+.commit-analyzer/

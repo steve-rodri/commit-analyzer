@@ -8,9 +8,13 @@ import { DIContainer } from "./di"
 
 async function main(): Promise<void> {
   try {
-    // Extract llm option from command line args before creating container
+    // Extract options from command line args before creating container
     const llmOption = extractLLMOption(process.argv)
-    const container = new DIContainer({ llm: llmOption })
+    const noCacheOption = extractNoCacheOption(process.argv)
+    const container = new DIContainer({ 
+      llm: llmOption,
+      noCache: noCacheOption 
+    })
     const app = container.getApplication()
 
     await app.run(process.argv)
@@ -40,6 +44,14 @@ function extractLLMOption(args: string[]): string | undefined {
     return args[llmIndex + 1]
   }
   return undefined
+}
+
+/**
+ * Extract the --no-cache option from command line arguments
+ * This is needed before creating the DI container
+ */
+function extractNoCacheOption(args: string[]): boolean {
+  return args.includes('--no-cache')
 }
 
 // Run the application if this file is executed directly

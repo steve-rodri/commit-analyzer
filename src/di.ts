@@ -11,6 +11,8 @@ import { CommitAnalysisController } from "@presentation/commit-analysis-controll
 import { ReportCommand } from "@presentation/report-command"
 import { ResumeCommand } from "@presentation/resume-command"
 
+import { CachedAnalysisRepository } from "@infra/cached-analysis-repository"
+import { CacheService } from "@infra/cache-service"
 import { FileStorageRepository } from "@infra/file-storage-repository"
 import { FileSystemStorageAdapter } from "@infra/file-system-storage-adapter"
 import { GitAdapter } from "@infra/git-adapter"
@@ -21,20 +23,31 @@ import { LLMAnalysisRepository } from "@infra/llm-analysis-repository"
 
 export interface DIContainerOptions {
   llm?: string
+  noCache?: boolean
 }
 
 export class DIContainer {
   private readonly gitAdapter = new GitAdapter()
   private readonly llmAdapter = LLMAdapterFactory.create(this.options?.llm)
   private readonly storageAdapter = new FileSystemStorageAdapter()
+  private readonly cacheService = (() => {
+    const service = new CacheService()
+    if (this.options?.noCache) {
+      service.setCacheEnabled(false)
+    }
+    return service
+  })()
   private readonly progressTracker = new JSONProgressTracker(
     this.storageAdapter,
   )
 
   private readonly commitRepository = new GitCommitRepository(this.gitAdapter)
-  private readonly analysisRepository = new LLMAnalysisRepository(
+  private readonly llmAnalysisRepository = new LLMAnalysisRepository(
     this.llmAdapter,
   )
+  private readonly analysisRepository = this.options?.noCache
+    ? this.llmAnalysisRepository
+    : new CachedAnalysisRepository(this.llmAnalysisRepository, this.cacheService)
   private readonly storageRepository = new FileStorageRepository(
     this.storageAdapter,
   )

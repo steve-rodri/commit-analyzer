@@ -13,7 +13,12 @@ export interface ICommitRepository {
   /**
    * Retrieves commits authored by a specific user
    */
-  getByAuthor(authorEmail: string, limit?: number): Promise<Commit[]>
+  getByAuthor(
+    authorEmail: string, 
+    limit?: number,
+    since?: string,
+    until?: string
+  ): Promise<Commit[]>
 
   /**
    * Retrieves commits from a list of hashes

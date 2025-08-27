@@ -17,6 +17,9 @@ export interface CLIOptions {
   report?: boolean
   inputCsv?: string
   verbose?: boolean
+  since?: string
+  until?: string
+  noCache?: boolean
 }
 
 export class CLIApplication {
@@ -77,6 +80,18 @@ export class CLIApplication {
         "-v, --verbose",
         "Enable verbose logging (shows detailed error information)",
       )
+      .option(
+        "--since <date>",
+        "Only analyze commits since this date (YYYY-MM-DD, '1 week ago', '2024-01-01')",
+      )
+      .option(
+        "--until <date>",
+        "Only analyze commits until this date (YYYY-MM-DD, '1 day ago', '2024-12-31')",
+      )
+      .option(
+        "--no-cache",
+        "Disable caching of analysis results",
+      )
       .argument(
         "[commits...]",
         "Commit hashes to analyze (if none provided, uses current user's commits)",
@@ -108,6 +123,9 @@ export class CLIApplication {
       report: this.getBooleanOption(options.report),
       inputCsv: this.getStringOption(options.inputCsv),
       verbose: this.getBooleanOption(options.verbose),
+      since: this.getStringOption(options.since),
+      until: this.getStringOption(options.until),
+      noCache: this.getBooleanOption(options.noCache),
     }
   }
 
@@ -163,6 +181,8 @@ export class CLIApplication {
       author: options.author,
       limit: options.limit,
       verbose: options.verbose,
+      since: options.since,
+      until: options.until,
     }
 
     if (options.report) {

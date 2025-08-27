@@ -32,5 +32,10 @@ export interface IVersionControlService {
   /**
    * Gets commits authored by a specific user
    */
-  getUserAuthoredCommits(authorEmail: string, limit?: number): Promise<string[]>
+  getUserAuthoredCommits(
+    authorEmail: string, 
+    limit?: number,
+    since?: string,
+    until?: string
+  ): Promise<string[]>
 }

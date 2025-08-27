@@ -5,7 +5,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "fs"
-import { join } from "path"
+import { dirname, join } from "path"
 
 import { IStorageService } from "@presentation/storage-service.interface"
 
@@ -16,6 +16,12 @@ export class FileSystemStorageAdapter implements IStorageService {
 
   async writeFile(filePath: string, content: string): Promise<void> {
     try {
+      // Ensure directory exists
+      const dir = dirname(filePath)
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true })
+      }
+      
       writeFileSync(
         filePath,
         content,

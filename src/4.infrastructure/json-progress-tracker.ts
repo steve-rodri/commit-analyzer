@@ -12,12 +12,16 @@ import {
 import { IStorageService } from "@presentation/storage-service.interface"
 
 import { calculatePercentage } from "../utils"
+import { AppPaths } from "../utils/app-paths"
 
 export class JSONProgressTracker implements IProgressRepository {
-  private static readonly CHECKPOINT_FILE = ".commit-analyzer-progress.json"
   private static readonly JSON_INDENT = 2
 
   constructor(private readonly storageService: IStorageService) {}
+
+  private getProgressFilePath(): string {
+    return AppPaths.getProgressFilePath()
+  }
 
   async saveProgress(state: ProgressState): Promise<void> {
     const serializedState = this.serializeProgressState(state)
@@ -27,7 +31,7 @@ export class JSONProgressTracker implements IProgressRepository {
       JSONProgressTracker.JSON_INDENT,
     )
     await this.storageService.writeFile(
-      JSONProgressTracker.CHECKPOINT_FILE,
+      this.getProgressFilePath(),
       content,
     )
   }
@@ -39,7 +43,7 @@ export class JSONProgressTracker implements IProgressRepository {
 
     try {
       const content = await this.storageService.readFile(
-        JSONProgressTracker.CHECKPOINT_FILE,
+        this.getProgressFilePath(),
       )
       const serializedState = JSON.parse(content)
       return this.deserializeProgressState(serializedState)
@@ -50,11 +54,11 @@ export class JSONProgressTracker implements IProgressRepository {
   }
 
   async hasProgress(): Promise<boolean> {
-    return this.storageService.fileExists(JSONProgressTracker.CHECKPOINT_FILE)
+    return this.storageService.fileExists(this.getProgressFilePath())
   }
 
   async clearProgress(): Promise<void> {
-    await this.storageService.deleteFile(JSONProgressTracker.CHECKPOINT_FILE)
+    await this.storageService.deleteFile(this.getProgressFilePath())
   }
 
   getRemainingCommits(state: ProgressState): CommitHash[] {

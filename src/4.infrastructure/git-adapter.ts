@@ -85,12 +85,16 @@ export class GitAdapter implements IVersionControlService {
   async getUserAuthoredCommits(
     authorEmail: string,
     limit?: number,
+    since?: string,
+    until?: string,
   ): Promise<string[]> {
     try {
       const limitFlag = limit ? `--max-count=${limit}` : ""
+      const sinceFlag = since ? `--since="${since}"` : ""
+      const untilFlag = until ? `--until="${until}"` : ""
 
       const output = execSync(
-        `git log --author="${authorEmail}" --format="%H" --no-merges ${limitFlag}`,
+        `git log --author="${authorEmail}" --format="%H" --no-merges ${limitFlag} ${sinceFlag} ${untilFlag}`,
         GitAdapter.EXEC_OPTIONS,
       ).trim()
 

@@ -69,9 +69,13 @@ export class CommitAnalysisService {
   /**
    * Gets commits authored by the current user
    */
-  async getCurrentUserCommits(limit?: number): Promise<Commit[]> {
+  async getCurrentUserCommits(
+    limit?: number,
+    since?: string,
+    until?: string
+  ): Promise<Commit[]> {
     const userEmail = await this.commitRepository.getCurrentUserEmail()
-    return this.commitRepository.getByAuthor(userEmail, limit)
+    return this.commitRepository.getByAuthor(userEmail, limit, since, until)
   }
 
   /**

@@ -83,16 +83,35 @@ export class GenerateReportUseCase
 
   private async generateMarkdownReport(
     commits: AnalyzedCommit[],
-    _statistics: CommitStatistics,
+    statistics: CommitStatistics,
     outputPath: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _includeStatistics: boolean,
+    includeStatistics: boolean,
   ): Promise<void> {
-    // Note: reportContent assembly is currently handled by storageRepository.generateReport
-    // This method could be enhanced to use the statistics for custom report formatting
+    let reportContent = ""
 
-    // Save the report using the storage repository
-    await this.storageRepository.generateReport(commits, outputPath)
+    if (includeStatistics) {
+      reportContent += this.generateStatisticsSection(statistics)
+      reportContent += "\n"
+      reportContent += this.generateYearlySummaries(commits)
+      reportContent += "\n"
+    }
+
+    // Get the basic report content from storage repository
+    const basicReportPath = outputPath + ".tmp"
+    await this.storageRepository.generateReport(commits, basicReportPath)
+    
+    // Read the basic report content
+    const fs = await import("fs/promises")
+    const basicContent = await fs.readFile(basicReportPath, "utf-8")
+    
+    // Combine statistics with basic content
+    reportContent += basicContent
+    
+    // Write the final report
+    await fs.writeFile(outputPath, reportContent, "utf-8")
+    
+    // Clean up temp file
+    await fs.unlink(basicReportPath)
   }
 
   private generateStatisticsSection(statistics: CommitStatistics): string {
@@ -114,6 +133,7 @@ export class GenerateReportUseCase
       content += `- **${year}:** ${count} commits\n`
     }
 
+    content += "\n"
     return content
   }
 

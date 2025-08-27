@@ -20,11 +20,18 @@ export class GitCommitRepository implements ICommitRepository {
     )
   }
 
-  async getByAuthor(authorEmail: string, limit?: number): Promise<Commit[]> {
+  async getByAuthor(
+    authorEmail: string, 
+    limit?: number,
+    since?: string,
+    until?: string
+  ): Promise<Commit[]> {
     const commitHashes =
       await this.versionControlService.getUserAuthoredCommits(
         authorEmail,
         limit,
+        since,
+        until,
       )
     const commits: Commit[] = []
 
