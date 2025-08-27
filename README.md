@@ -13,12 +13,25 @@ A TypeScript/Node.js program that analyzes git commits and generates categorized
 - Automatically filters out merge commits for cleaner analysis
 - Robust error handling and validation
 
+## Prerequisites
+
+This tool requires Bun runtime. Install it globally:
+
+```bash
+# Install bun globally
+curl -fsSL https://bun.sh/install | bash
+# or
+npm install -g bun
+```
+
 ## Installation
 
 ```bash
 npm install
-npm run build
+bun link
 ```
+
+After linking, you can use `commit-analyzer` command globally.
 
 ## Usage
 

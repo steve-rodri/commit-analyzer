@@ -2,19 +2,20 @@
   "name": "commit-analyzer",
   "version": "1.0.3",
   "description": "Analyze git commits and generate categories, summaries, and descriptions for each commit. Optionally generate a yearly breakdown report of your commit history.",
-  "main": "dist/main.js",
+  "main": "dist/main.ts",
   "bin": {
-    "commit-analyzer": "dist/main.js"
+    "commit-analyzer": "dist/main.ts"
   },
   "prettier": {
     "semi": false
   },
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/main.js",
-    "dev": "ts-node -r tsconfig-paths/register src/main.ts",
+    "build": "bun build src/main.ts --outfile=dist/main.ts --compile",
+    "start": "bun src/main.ts",
+    "dev": "bun src/main.ts",
     "lint": "eslint src/**/*.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "link": "bun link"
   },
   "keywords": [
     "git",
