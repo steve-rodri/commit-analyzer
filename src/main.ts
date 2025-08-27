@@ -1,108 +1,139 @@
 #!/usr/bin/env node
 
-import { CSVService } from "./csv"
-import { ProgressTracker } from "./progress"
-import { GitError, handleError, ValidationError } from "./errors"
+/**
+ * Clean Architecture Main Entry Point
+ * This is the composition root where all dependencies are wired together
+ */
 
-import { InputCsvHandler } from "./input-csv-handler"
-import { ModelSelector } from "./model-selector"
-import { CommitProcessor } from "./commit-processor"
-import { SessionManager } from "./session-manager"
-import { ReportHandler } from "./report-handler"
-import { GitService } from "./git"
-import { getCliOptions } from "./get-cli-options"
-import { AnalyzedCommit } from "./types"
-import { ConsoleUtils } from "./console-utils"
+import { CLIApplication } from "./presentation/cli/CLIApplication"
+import { CommitAnalysisController } from "./presentation/controllers/CommitAnalysisController"
+import { ConsoleFormatter } from "./presentation/cli/formatters/ConsoleFormatter"
 
-async function main(): Promise<void> {
-  try {
-    if (!GitService.isGitRepository()) {
-      throw new GitError("Current directory is not a git repository")
-    }
+// Commands
+import { AnalyzeCommand } from "./presentation/cli/commands/AnalyzeCommand"
+import { ReportCommand } from "./presentation/cli/commands/ReportCommand"
+import { ResumeCommand } from "./presentation/cli/commands/ResumeCommand"
 
-    const options = getCliOptions()
+// Use Cases
+import { AnalyzeCommitsUseCase } from "./application/use-cases/AnalyzeCommitsUseCase"
+import { GenerateReportUseCase } from "./application/use-cases/GenerateReportUseCase"
+import { ResumeAnalysisUseCase } from "./application/use-cases/ResumeAnalysisUseCase"
 
-    if (options.inputCsv) {
-      await InputCsvHandler.handleInputCsvMode(options)
-      return
-    }
+// Domain Services
+import { CommitAnalysisService } from "./domain/services/CommitAnalysisService"
+import { ReportGenerationService } from "./domain/services/ReportGenerationService"
 
-    await ModelSelector.selectLLMModel(options)
+// Infrastructure - Adapters
+import { GitAdapter } from "./infrastructure/adapters/git/GitAdapter"
+import { ClaudeLLMAdapter } from "./infrastructure/adapters/llm/ClaudeLLMAdapter"
+import { FileSystemStorageAdapter } from "./infrastructure/adapters/storage/FileSystemStorageAdapter"
+import { JSONProgressTracker } from "./infrastructure/adapters/progress/JSONProgressTracker"
 
-    if (SessionManager.handleClearFlag(options)) {
-      return
-    }
+// Infrastructure - Repositories
+import { GitCommitRepository } from "./infrastructure/repositories/GitCommitRepository"
+import { LLMAnalysisRepository } from "./infrastructure/repositories/LLMAnalysisRepository"
+import { FileStorageRepository } from "./infrastructure/repositories/FileStorageRepository"
 
-    const {
-      commitsToAnalyze: initialCommitsToAnalyze,
-      analyzedCommits: initialAnalyzedCommits,
-      processedCommits,
-    } = await SessionManager.handleResumeMode(options)
+// Shared
+import { ApplicationError } from "./shared/errors/ApplicationError"
 
-    let commitsToAnalyze = initialCommitsToAnalyze
-    let analyzedCommits = initialAnalyzedCommits
+/**
+ * Dependency Injection Container
+ */
+class DIContainer {
+  // Adapters (Infrastructure Layer)
+  private readonly gitAdapter = new GitAdapter()
+  private readonly llmAdapter = new ClaudeLLMAdapter()
+  private readonly storageAdapter = new FileSystemStorageAdapter()
+  private readonly progressTracker = new JSONProgressTracker(
+    this.storageAdapter,
+  )
 
-    commitsToAnalyze = SessionManager.getCommitsToAnalyze(
-      options,
-      commitsToAnalyze,
-    )
+  // Repositories (Infrastructure Layer)
+  private readonly commitRepository = new GitCommitRepository(this.gitAdapter)
+  private readonly analysisRepository = new LLMAnalysisRepository(
+    this.llmAdapter,
+  )
+  private readonly storageRepository = new FileStorageRepository(
+    this.storageAdapter,
+  )
 
-    const allCommitsToAnalyze = [...processedCommits, ...commitsToAnalyze]
+  // Domain Services
+  private readonly commitAnalysisService = new CommitAnalysisService(
+    this.commitRepository,
+    this.analysisRepository,
+  )
+  private readonly reportGenerationService = new ReportGenerationService()
 
-    const result = await CommitProcessor.processCommits({
-      commitsToAnalyze,
-      processedCommits,
-      analyzedCommits,
-      allCommitsToAnalyze,
-      options,
-    })
-    analyzedCommits = result.analyzedCommits
-    const failedCommits = result.failedCommits
+  // Use Cases (Application Layer)
+  private readonly analyzeCommitsUseCase = new AnalyzeCommitsUseCase(
+    this.commitAnalysisService,
+    this.progressTracker,
+    this.storageRepository,
+  )
 
-    if (analyzedCommits.length === 0) {
-      throw new ValidationError("No commits were successfully analyzed")
-    }
+  private readonly generateReportUseCase = new GenerateReportUseCase(
+    this.reportGenerationService,
+    this.storageRepository,
+  )
 
-    CSVService.exportToFile(analyzedCommits, options.output!)
-    ConsoleUtils.logSection(`Analysis complete! Results exported to ${options.output}`)
-    ConsoleUtils.logSuccess(
-      `Successfully analyzed ${analyzedCommits.length}/${allCommitsToAnalyze.length} commits`,
-    )
+  private readonly resumeAnalysisUseCase = new ResumeAnalysisUseCase(
+    this.progressTracker,
+    this.analyzeCommitsUseCase,
+  )
 
-    if (failedCommits > 0) {
-      ConsoleUtils.logWarning(
-        `Failed to analyze ${failedCommits} commits (see errors above)`,
-      )
-    }
+  // Commands (Presentation Layer)
+  private readonly analyzeCommand = new AnalyzeCommand(
+    this.analyzeCommitsUseCase,
+  )
+  private readonly reportCommand = new ReportCommand(this.generateReportUseCase)
+  private readonly resumeCommand = new ResumeCommand(this.resumeAnalysisUseCase)
 
-    // Generate report if --report flag is provided
-    await ReportHandler.generateReportIfRequested(options)
+  // Controller (Presentation Layer)
+  private readonly controller = new CommitAnalysisController(
+    this.analyzeCommand,
+    this.reportCommand,
+    this.resumeCommand,
+  )
 
-    // Clear checkpoint on successful completion
-    ProgressTracker.clearProgress()
-    ConsoleUtils.logSuccess("Progress checkpoint cleared (analysis complete)")
+  // Main Application
+  private readonly application = new CLIApplication(this.controller)
 
-    displayAnalysisSummary(analyzedCommits)
-  } catch (error) {
-    handleError(error)
+  getApplication(): CLIApplication {
+    return this.application
   }
 }
 
-function displayAnalysisSummary(analyzedCommits: AnalyzedCommit[]): void {
-  const summary = analyzedCommits.reduce(
-    (acc, commit) => {
-      acc[commit.analysis.category] = (acc[commit.analysis.category] || 0) + 1
-      return acc
-    },
-    {} as Record<string, number>,
-  )
+/**
+ * Application Bootstrap
+ */
+async function bootstrap(): Promise<void> {
+  try {
+    const container = new DIContainer()
+    const app = container.getApplication()
 
-  ConsoleUtils.logSection("Summary by category:")
-  Object.entries(summary).forEach(([category, count]) => {
-    ConsoleUtils.logInfo(`${category}: ${count} commits`)
+    await app.run(process.argv)
+  } catch (error) {
+    if (error instanceof ApplicationError) {
+      ConsoleFormatter.logError(`[${error.code}]: ${error.message}`)
+      process.exit(1)
+    }
+
+    if (error instanceof Error) {
+      ConsoleFormatter.logError(`Unexpected error: ${error.message}`)
+      process.exit(1)
+    }
+
+    ConsoleFormatter.logError("Unknown error occurred")
+    process.exit(1)
+  }
+}
+
+// Run the application if this file is executed directly
+if (require.main === module) {
+  bootstrap().catch((error) => {
+    ConsoleFormatter.logError(`Failed to bootstrap application: ${error}`)
+    process.exit(1)
   })
 }
 
-if (require.main === module) {
-  main()
-}

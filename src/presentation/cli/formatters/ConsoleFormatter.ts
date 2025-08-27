@@ -1,10 +1,9 @@
 /**
- * Console utility functions for consistent output formatting
+ * Console formatter for consistent output styling
  */
-
-export class ConsoleUtils {
+export class ConsoleFormatter {
   /**
-   * Log an info message with checkmark
+   * Log a success message with checkmark
    */
   static logSuccess(message: string): void {
     console.log(`✓ ${message}`)
@@ -22,6 +21,13 @@ export class ConsoleUtils {
    */
   static logWarning(message: string): void {
     console.log(`⚠️  ${message}`)
+  }
+
+  /**
+   * Log a debug message for development purposes
+   */
+  static logDebug(message: string): void {
+    console.log(`🐛 ${message}`)
   }
 
   /**
@@ -86,5 +92,15 @@ export class ConsoleUtils {
    */
   static logWithIcon(icon: string, message: string): void {
     console.log(`${icon} ${message}`)
+  }
+
+  /**
+   * Display analysis summary in a formatted way
+   */
+  static displayAnalysisSummary(summary: Record<string, number>): void {
+    this.logSection("Summary by category:")
+    Object.entries(summary).forEach(([category, count]) => {
+      this.logInfo(`${category}: ${count} commits`)
+    })
   }
 }
