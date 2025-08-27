@@ -1,47 +1,29 @@
 #!/usr/bin/env node
 
-/**
- * Clean Architecture Main Entry Point
- * This is the composition root where all dependencies are wired together
- */
+import { ApplicationError } from "@domain/application-error"
+import { CommitAnalysisService } from "@domain/commit-analysis-service"
+import { ReportGenerationService } from "@domain/report-generation-service"
 
-import { CLIApplication } from "./presentation/cli/CLIApplication"
-import { CommitAnalysisController } from "./presentation/controllers/CommitAnalysisController"
-import { ConsoleFormatter } from "./presentation/cli/formatters/ConsoleFormatter"
+import { AnalyzeCommitsUseCase } from "@app/analyze-commits.usecase"
+import { GenerateReportUseCase } from "@app/generate-report.usecase"
+import { ResumeAnalysisUseCase } from "@app/resume-analysis.usecase"
 
-// Commands
-import { AnalyzeCommand } from "./presentation/cli/commands/AnalyzeCommand"
-import { ReportCommand } from "./presentation/cli/commands/ReportCommand"
-import { ResumeCommand } from "./presentation/cli/commands/ResumeCommand"
+import { AnalyzeCommand } from "@presentation/analyze-command"
+import { CLIApplication } from "@presentation/cli-application"
+import { CommitAnalysisController } from "@presentation/commit-analysis-controller"
+import { ConsoleFormatter } from "@presentation/console-formatter"
+import { ReportCommand } from "@presentation/report-command"
+import { ResumeCommand } from "@presentation/resume-command"
 
-// Use Cases
-import { AnalyzeCommitsUseCase } from "./application/use-cases/AnalyzeCommitsUseCase"
-import { GenerateReportUseCase } from "./application/use-cases/GenerateReportUseCase"
-import { ResumeAnalysisUseCase } from "./application/use-cases/ResumeAnalysisUseCase"
+import { ClaudeLLMAdapter } from "@infra/claude-llm-adapter"
+import { FileStorageRepository } from "@infra/file-storage-repository"
+import { FileSystemStorageAdapter } from "@infra/file-system-storage-adapter"
+import { GitAdapter } from "@infra/git-adapter"
+import { GitCommitRepository } from "@infra/git-commit-repository"
+import { JSONProgressTracker } from "@infra/json-progress-tracker"
+import { LLMAnalysisRepository } from "@infra/llm-analysis-repository"
 
-// Domain Services
-import { CommitAnalysisService } from "./domain/services/CommitAnalysisService"
-import { ReportGenerationService } from "./domain/services/ReportGenerationService"
-
-// Infrastructure - Adapters
-import { GitAdapter } from "./infrastructure/adapters/git/GitAdapter"
-import { ClaudeLLMAdapter } from "./infrastructure/adapters/llm/ClaudeLLMAdapter"
-import { FileSystemStorageAdapter } from "./infrastructure/adapters/storage/FileSystemStorageAdapter"
-import { JSONProgressTracker } from "./infrastructure/adapters/progress/JSONProgressTracker"
-
-// Infrastructure - Repositories
-import { GitCommitRepository } from "./infrastructure/repositories/GitCommitRepository"
-import { LLMAnalysisRepository } from "./infrastructure/repositories/LLMAnalysisRepository"
-import { FileStorageRepository } from "./infrastructure/repositories/FileStorageRepository"
-
-// Shared
-import { ApplicationError } from "./shared/errors/ApplicationError"
-
-/**
- * Dependency Injection Container
- */
 class DIContainer {
-  // Adapters (Infrastructure Layer)
   private readonly gitAdapter = new GitAdapter()
   private readonly llmAdapter = new ClaudeLLMAdapter()
   private readonly storageAdapter = new FileSystemStorageAdapter()
@@ -49,7 +31,6 @@ class DIContainer {
     this.storageAdapter,
   )
 
-  // Repositories (Infrastructure Layer)
   private readonly commitRepository = new GitCommitRepository(this.gitAdapter)
   private readonly analysisRepository = new LLMAnalysisRepository(
     this.llmAdapter,
@@ -58,14 +39,12 @@ class DIContainer {
     this.storageAdapter,
   )
 
-  // Domain Services
   private readonly commitAnalysisService = new CommitAnalysisService(
     this.commitRepository,
     this.analysisRepository,
   )
   private readonly reportGenerationService = new ReportGenerationService()
 
-  // Use Cases (Application Layer)
   private readonly analyzeCommitsUseCase = new AnalyzeCommitsUseCase(
     this.commitAnalysisService,
     this.progressTracker,
@@ -82,21 +61,20 @@ class DIContainer {
     this.analyzeCommitsUseCase,
   )
 
-  // Commands (Presentation Layer)
   private readonly analyzeCommand = new AnalyzeCommand(
     this.analyzeCommitsUseCase,
+    this.commitAnalysisService,
+    this.commitRepository,
   )
   private readonly reportCommand = new ReportCommand(this.generateReportUseCase)
   private readonly resumeCommand = new ResumeCommand(this.resumeAnalysisUseCase)
 
-  // Controller (Presentation Layer)
   private readonly controller = new CommitAnalysisController(
     this.analyzeCommand,
     this.reportCommand,
     this.resumeCommand,
   )
 
-  // Main Application
   private readonly application = new CLIApplication(this.controller)
 
   getApplication(): CLIApplication {
@@ -104,9 +82,6 @@ class DIContainer {
   }
 }
 
-/**
- * Application Bootstrap
- */
 async function bootstrap(): Promise<void> {
   try {
     const container = new DIContainer()
@@ -136,4 +111,3 @@ if (require.main === module) {
     process.exit(1)
   })
 }
-

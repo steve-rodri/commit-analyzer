@@ -1,3 +1,5 @@
+import readline from "readline"
+
 /**
  * Common utility functions used across the application
  */
@@ -16,8 +18,6 @@ export function createPromiseReadline(): {
   question: (prompt: string) => Promise<string>
   close: () => void
 } {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const readline = require("readline")
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,

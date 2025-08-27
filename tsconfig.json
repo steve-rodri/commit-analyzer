@@ -12,7 +12,13 @@
     "resolveJsonModule": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "paths": {
+      "@domain/*": ["./src/1.domain/*"],
+      "@app/*": ["./src/2.application/*"],
+      "@presentation/*": ["./src/3.presentation/*"],
+      "@infra/*": ["./src/4.infrastructure/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
