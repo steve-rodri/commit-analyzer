@@ -64,15 +64,61 @@ export class CSVService {
     return `"${field.replace(/"/g, '""')}"`
   }
 
-  private parseCSV(content: string): AnalyzedCommit[] {
-    const lines = content.split("\n").filter((line) => line.trim().length > 0)
+  /**
+   * Split CSV content into rows, properly handling quoted fields that may contain newlines
+   */
+  private splitCSVIntoRows(content: string): string[] {
+    const rows: string[] = []
+    let currentRow = ""
+    let inQuotes = false
+    let i = 0
 
-    if (lines.length < 2) {
+    while (i < content.length) {
+      const char = content[i]
+      const nextChar = content[i + 1]
+
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          // Escaped quote inside quoted field
+          currentRow += '""'
+          i += 2
+        } else {
+          // Start or end of quoted field
+          inQuotes = !inQuotes
+          currentRow += '"'
+          i++
+        }
+      } else if (char === "\n" && !inQuotes) {
+        // Row separator outside quotes
+        if (currentRow.trim().length > 0) {
+          rows.push(currentRow)
+        }
+        currentRow = ""
+        i++
+      } else {
+        // Regular character (including newlines inside quotes)
+        currentRow += char
+        i++
+      }
+    }
+
+    // Add the last row if it exists
+    if (currentRow.trim().length > 0) {
+      rows.push(currentRow)
+    }
+
+    return rows
+  }
+
+  private parseCSV(content: string): AnalyzedCommit[] {
+    const rows = this.splitCSVIntoRows(content)
+
+    if (rows.length < 2) {
       throw new Error("Invalid CSV format: no data rows found")
     }
 
     // Validate header
-    const header = lines[0].toLowerCase()
+    const header = rows[0].toLowerCase()
     const expectedHeader = "timestamp,category,summary,description"
     if (header !== expectedHeader) {
       throw new Error(
@@ -81,7 +127,7 @@ export class CSVService {
     }
 
     // Skip header row
-    const dataRows = lines.slice(1)
+    const dataRows = rows.slice(1)
     const commits: AnalyzedCommit[] = []
 
     for (let i = 0; i < dataRows.length; i++) {

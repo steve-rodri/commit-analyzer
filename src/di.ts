@@ -74,6 +74,7 @@ export class DIContainer {
     this.storageRepository,
     this.llmAdapter,
     this.dateFormattingService,
+    this.gitAdapter,
   )
 
   private readonly resumeAnalysisUseCase = new ResumeAnalysisUseCase(

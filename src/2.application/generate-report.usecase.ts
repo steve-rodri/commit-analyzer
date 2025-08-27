@@ -7,6 +7,7 @@ import {
 
 import { ICommandHandler } from "@presentation/command-handler.interface"
 import { IStorageRepository } from "@presentation/storage-repository.interface"
+import { IVersionControlService } from "@presentation/version-control-service.interface"
 
 import { ILLMService } from "./llm-service"
 
@@ -35,6 +36,7 @@ export class GenerateReportUseCase
     private readonly storageRepository: IStorageRepository,
     private readonly llmService: ILLMService,
     private readonly dateFormattingService: DateFormattingService,
+    private readonly versionControlService: IVersionControlService,
   ) {}
 
   async handle(command: GenerateReportCommand): Promise<GenerateReportResult> {
@@ -99,7 +101,10 @@ export class GenerateReportUseCase
     sourceInfo?: { type: 'author' | 'commits' | 'csv'; value: string }
   }): Promise<void> {
     const { commits, statistics, outputPath, includeStatistics, sourceInfo } = params
-    let reportContent = "# Development Summary Report\n\n"
+    
+    // Get repository name for the report heading
+    const repositoryName = await this.versionControlService.getRepositoryName()
+    let reportContent = `# Development Report for ${repositoryName}\n\n`
 
     if (includeStatistics) {
       reportContent += this.generateAnalysisSection(commits, statistics, sourceInfo)

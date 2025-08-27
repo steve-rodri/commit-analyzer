@@ -82,6 +82,33 @@ export class GitAdapter implements IVersionControlService {
     }
   }
 
+  async getRepositoryName(): Promise<string> {
+    try {
+      // Try to get the repository name from remote origin URL
+      const remoteUrl = execSync("git config --get remote.origin.url", GitAdapter.EXEC_OPTIONS).trim()
+      
+      // Extract repository name from various URL formats
+      // git@github.com:user/repo.git -> repo
+      // https://github.com/user/repo.git -> repo
+      // https://github.com/user/repo -> repo
+      const match = remoteUrl.match(/\/([^\/]+?)(?:\.git)?$/)
+      if (match && match[1]) {
+        return match[1]
+      }
+      
+      // Fallback: get the directory name
+      const dirName = execSync("basename $(git rev-parse --show-toplevel)", GitAdapter.EXEC_OPTIONS).trim()
+      return dirName
+    } catch (error) {
+      // Final fallback: use current directory name
+      try {
+        return execSync("basename $(pwd)", GitAdapter.EXEC_OPTIONS).trim()
+      } catch {
+        return "Unknown Project"
+      }
+    }
+  }
+
   async getUserAuthoredCommits(params: {
     authorEmail: string
     limit?: number

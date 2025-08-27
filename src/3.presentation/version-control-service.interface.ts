@@ -30,6 +30,11 @@ export interface IVersionControlService {
   getCurrentUserName(): Promise<string>
 
   /**
+   * Gets the repository/project name
+   */
+  getRepositoryName(): Promise<string>
+
+  /**
    * Gets commits authored by a specific user
    */
   getUserAuthoredCommits(params: {
