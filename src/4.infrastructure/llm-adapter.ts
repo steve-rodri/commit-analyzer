@@ -106,32 +106,30 @@ export abstract class LLMAdapter implements ILLMService {
   }
 
   protected buildPrompt(commitMessage: string, diff: string): string {
-    return `Analyze this git commit and provide a categorization:
+    return `Analyze this git commit and provide a categorization.
 
-    COMMIT MESSAGE:
-    ${commitMessage}
+COMMIT MESSAGE:
+${commitMessage}
 
-    COMMIT DIFF:
-    ${diff}
+COMMIT DIFF:
+${diff}
 
-    Based on the commit message and code changes, categorize this commit as one of:
-    - "tweak": Minor adjustments, bug fixes, small improvements
-    - "feature": New functionality, major additions
-    - "process": Build system, CI/CD, tooling, configuration changes
+Based on the commit message and code changes, categorize this commit as one of:
+- "tweak": Minor adjustments, bug fixes, small improvements
+- "feature": New functionality, major additions  
+- "process": Build system, CI/CD, tooling, configuration changes
 
-    Provide:
-    1. Category: [tweak|feature|process]
-    2. Summary: One-line description (max 80 chars)
-    3. Description: Detailed explanation (2-3 sentences)
+IMPORTANT: You must respond with ONLY a valid JSON object in this exact format:
 
-    Format as JSON:
-    \`\`\`json
-    {
-      "category": "...",
-      "summary": "...",
-      "description": "..."
-    }
-    \`\`\``
+\`\`\`json
+{
+  "category": "tweak|feature|process",
+  "summary": "One-line description (max 80 characters)",
+  "description": "Detailed explanation in 2-3 sentences"
+}
+\`\`\`
+
+Do not include any other text outside the JSON code block.`
   }
 
   protected parseResponse(response: string): {
@@ -166,9 +164,9 @@ export abstract class LLMAdapter implements ILLMService {
     } catch (error) {
       if (this.verbose) {
         console.log(
-          `  - Raw LLM response (first 1000 chars): ${response.substring(0, 1000)}`,
+          `  - Raw LLM response (first 2000 chars): ${response.substring(0, 2000)}`,
         )
-        if (response.length > 1000) {
+        if (response.length > 2000) {
           console.log(
             `  - Response truncated (total length: ${response.length} chars)`,
           )
@@ -184,6 +182,7 @@ export abstract class LLMAdapter implements ILLMService {
   protected isValidCategory(category: string): category is CategoryType {
     return ["tweak", "feature", "process"].includes(category)
   }
+
 
   protected truncatePrompt(prompt: string): string {
     const maxLength = this.getMaxPromptLength()
