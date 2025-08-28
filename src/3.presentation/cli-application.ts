@@ -24,7 +24,7 @@ export interface CLIOptions {
 }
 
 export class CLIApplication {
-  private static readonly VERSION = "1.1.1"
+  private static readonly VERSION = "1.1.2"
   private static readonly DEFAULT_COMMITS_OUTPUT_FILE = "results/commits.csv"
   private static readonly DEFAULT_REPORT_OUTPUT_FILE = "results/report.md"
 
@@ -157,7 +157,7 @@ export class CLIApplication {
     // Handle input CSV mode (report generation only)
     if (options.inputCsv) {
       const reportOutputPath = this.determineReportOutputPath(options)
-      
+
       await this.controller.handleReportGeneration({
         inputCsv: options.inputCsv,
         output: reportOutputPath,
@@ -258,13 +258,14 @@ export class CLIApplication {
   private determineReportOutputPath(options: CLIOptions): string {
     // Check if explicit output or outputDir was provided in raw options
     // We need to check raw options to distinguish between user-provided and default values
-    const hasExplicitOutput = process.argv.includes('--output') || process.argv.includes('-o')
-    const hasExplicitOutputDir = process.argv.includes('--output-dir')
-    
+    const hasExplicitOutput =
+      process.argv.includes("--output") || process.argv.includes("-o")
+    const hasExplicitOutputDir = process.argv.includes("--output-dir")
+
     if (hasExplicitOutput || hasExplicitOutputDir) {
       return options.output || CLIApplication.DEFAULT_REPORT_OUTPUT_FILE
     }
-    
+
     // Default: generate report in same directory as CSV with .md extension
     return this.getReportPathFromCsv(options.inputCsv!)
   }
