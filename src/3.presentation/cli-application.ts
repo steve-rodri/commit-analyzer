@@ -271,9 +271,8 @@ export class CLIApplication {
   }
 
   private getReportPathFromCsv(csvPath: string): string {
-    if (csvPath.endsWith(".csv")) {
-      return csvPath.replace(/\.csv$/, ".md")
-    }
-    return csvPath + ".md"
+    const lastSlash = csvPath.lastIndexOf("/")
+    const directory = lastSlash >= 0 ? csvPath.substring(0, lastSlash + 1) : ""
+    return directory + "report.md"
   }
 }
