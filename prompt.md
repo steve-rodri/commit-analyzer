@@ -58,12 +58,12 @@
 ### Technical Implementation
 
   - Use Node.js with TypeScript
-  - Extract year from git commit timestamp
+  - Extract timestamp from git commit
 
   Output Format:
 
   CSV with headers:
-  year,category,summary,description
+  timestamp,category,summary,description
 
   The program should be robust, handle edge cases, and provide clear error
   messages for invalid commits or API failures.
