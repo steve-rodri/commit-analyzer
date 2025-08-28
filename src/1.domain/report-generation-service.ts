@@ -241,43 +241,119 @@ export class ReportGenerationService {
   }
 
   /**
-   * Converts analyzed commits to CSV string format for LLM consumption
+   * Converts analyzed commits to CSV string format for LLM consumption with enhanced context
    */
   convertToCSVString(commits: AnalyzedCommit[]): string {
-    const header = "year,category,summary,description"
+    const header = "year,category,summary,description,commit_count,date_range"
+    
+    // Group commits by year and category for context
+    const contextMap = new Map<string, { count: number; dates: Date[] }>()
+    
     const rows = commits.map((commit) => {
       const analysis = commit.getAnalysis()
+      const key = `${commit.getYear()}-${analysis.getCategory().getValue()}`
+      
+      if (!contextMap.has(key)) {
+        contextMap.set(key, { count: 0, dates: [] })
+      }
+      
+      const context = contextMap.get(key)!
+      context.count++
+      context.dates.push(commit.getDate())
+      
+      const dateRange = context.dates.length > 1 
+        ? `${this.formatDate(Math.min(...context.dates.map(d => d.getTime())))} to ${this.formatDate(Math.max(...context.dates.map(d => d.getTime())))}`
+        : this.formatDate(commit.getDate())
+      
       return [
         commit.getYear().toString(),
         this.escapeCsvField(analysis.getCategory().getValue()),
         this.escapeCsvField(analysis.getSummary()),
         this.escapeCsvField(analysis.getDescription()),
+        context.count.toString(),
+        this.escapeCsvField(dateRange),
       ].join(",")
     })
 
     return [header, ...rows].join("\n")
   }
 
+  private formatDate(date: Date | number): string {
+    const d = new Date(date)
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`
+  }
+
   /**
-   * Converts grouped commits to CSV with time period information
+   * Converts grouped commits to CSV with time period information and enhanced context
    */
   convertGroupedToCSV(groupedCommits: Map<string, AnalyzedCommit[]>, period: string): string {
-    const header = `${period},category,summary,description`
+    const header = `${period},category,summary,description,commit_count,similar_commits`
     const rows: string[] = []
     
     for (const [timePeriod, commits] of groupedCommits) {
+      // Group commits by category within the time period for context
+      const categoryGroups = new Map<string, AnalyzedCommit[]>()
+      
+      for (const commit of commits) {
+        const category = commit.getAnalysis().getCategory().getValue()
+        if (!categoryGroups.has(category)) {
+          categoryGroups.set(category, [])
+        }
+        categoryGroups.get(category)!.push(commit)
+      }
+      
+      // Add context about similar commits in the same period and category
       for (const commit of commits) {
         const analysis = commit.getAnalysis()
+        const category = analysis.getCategory().getValue()
+        const similarCommits = categoryGroups.get(category)!
+        
+        // Find similar summaries in the same category
+        const similarSummaries = similarCommits
+          .filter(c => c !== commit)
+          .map(c => c.getAnalysis().getSummary())
+          .filter(summary => this.isSimilarSummary(analysis.getSummary(), summary))
+          .slice(0, 3) // Limit to 3 similar items
+        
         rows.push([
           this.escapeCsvField(timePeriod),
-          this.escapeCsvField(analysis.getCategory().getValue()),
+          this.escapeCsvField(category),
           this.escapeCsvField(analysis.getSummary()),
           this.escapeCsvField(analysis.getDescription()),
+          similarCommits.length.toString(),
+          this.escapeCsvField(similarSummaries.join('; ')),
         ].join(","))
       }
     }
 
     return [header, ...rows].join("\n")
+  }
+
+  /**
+   * Determines if two summaries are similar based on common keywords
+   */
+  private isSimilarSummary(summary1: string, summary2: string): boolean {
+    const keywords1 = this.extractKeywords(summary1)
+    const keywords2 = this.extractKeywords(summary2)
+    
+    // Check if they share significant keywords (at least 2 common words)
+    const commonKeywords = keywords1.filter(word => keywords2.includes(word))
+    return commonKeywords.length >= 2
+  }
+
+  /**
+   * Extracts meaningful keywords from a summary for similarity detection
+   */
+  private extractKeywords(summary: string): string[] {
+    // Remove common stopwords and extract meaningful terms
+    const stopwords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should'])
+    
+    return summary
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length > 2 && !stopwords.has(word))
+      .slice(0, 5) // Take first 5 meaningful words
   }
 
   /**

@@ -243,9 +243,11 @@ ${csvContent}
 INSTRUCTIONS:
 1. Group the data by year (descending order, most recent first)
 2. Within each year, group by category: Features, Process Improvements, and Tweaks & Bug Fixes
-3. Consolidate similar items within each category to create readable summaries
-4. Focus on what was accomplished rather than individual commit details
-5. Use clear, professional language appropriate for stakeholders
+3. Use the 'commit_count' and 'date_range' columns to understand the scope and timeline of work
+4. Consolidate similar items within each category to create readable summaries
+5. Focus on what was accomplished rather than individual commit details
+6. Use clear, professional language appropriate for stakeholders
+7. Pay attention to recurring themes and patterns across commits
 
 CATEGORY MAPPING:
 - "feature" → "Features" section
@@ -253,12 +255,15 @@ CATEGORY MAPPING:
 - "tweak" → "Tweaks & Bug Fixes" section
 
 CONSOLIDATION GUIDELINES:
-- Group similar features together (e.g., "authentication system improvements")
-- Combine related bug fixes (e.g., "resolved 8 authentication issues")
-- Summarize process changes by theme (e.g., "CI/CD pipeline enhancements")
-- Use bullet points for individual items within categories
+- FIRST: Extract common themes and keywords from commit summaries within each category
+- SECOND: Identify and merge duplicate or highly similar work items (e.g., multiple "fix auth bug" commits become "resolved authentication issues")
+- Group similar features together by theme (e.g., "authentication system improvements", "payment processing enhancements")
+- Combine related bug fixes by area/system (e.g., "resolved 8 authentication issues", "fixed 5 database connection problems")
+- Summarize process changes by theme (e.g., "CI/CD pipeline enhancements", "testing infrastructure improvements")
+- Use bullet points for individual consolidated items within categories
 - Aim for 3-7 bullet points per category per year
 - Include specific numbers when relevant (e.g., "15 bug fixes", "3 new features")
+- Avoid listing near-identical items separately - consolidate them into meaningful groups
 
 OUTPUT FORMAT:
 Generate yearly summary sections with this exact structure (DO NOT include the main title or commit analysis section):
@@ -290,6 +295,16 @@ QUALITY REQUIREMENTS:
 - Avoid technical jargon where possible
 - Ensure each bullet point represents meaningful work
 - Make the report valuable for both technical and non-technical readers
+- Focus on business impact and user value rather than technical implementation details
+- When consolidating, preserve the most important aspects from similar commits
+- Use progressive disclosure: start with high-level themes, then add specific details
+
+CONTEXT ANALYSIS:
+Before consolidating, analyze the commit data for:
+1. Common file patterns or system areas being modified
+2. Recurring keywords in commit messages that indicate related work
+3. Sequential commits that build upon each other
+4. Bug fixes that address the same underlying issue
 
 Generate the markdown report now:`
   }
@@ -306,10 +321,12 @@ ${csvContent}
 INSTRUCTIONS:
 1. Group the data by ${periodDisplayName} (descending order, most recent first)
 2. Within each ${periodDisplayName.toLowerCase()}, group by category: Features, Process Improvements, and Tweaks & Bug Fixes
-3. Consolidate similar items within each category to create readable summaries
-4. Focus on what was accomplished rather than individual commit details
-5. Use clear, professional language appropriate for stakeholders
-6. Only include sections for time periods that have commits
+3. Use the 'commit_count' and 'similar_commits' columns to understand related work and consolidation opportunities
+4. Consolidate similar items within each category to create readable summaries
+5. Focus on what was accomplished rather than individual commit details
+6. Use clear, professional language appropriate for stakeholders
+7. Only include sections for time periods that have commits
+8. Pay attention to recurring themes and patterns across commits
 
 CATEGORY MAPPING:
 - "feature" → "Features" section
@@ -317,12 +334,15 @@ CATEGORY MAPPING:
 - "tweak" → "Tweaks & Bug Fixes" section
 
 CONSOLIDATION GUIDELINES:
-- Group similar features together (e.g., "authentication system improvements")
-- Combine related bug fixes (e.g., "resolved 8 authentication issues")
-- Summarize process changes by theme (e.g., "CI/CD pipeline enhancements")
-- Use bullet points for individual items within categories
+- FIRST: Extract common themes and keywords from commit summaries within each category
+- SECOND: Identify and merge duplicate or highly similar work items (e.g., multiple "fix auth bug" commits become "resolved authentication issues")
+- Group similar features together by theme (e.g., "authentication system improvements", "payment processing enhancements")
+- Combine related bug fixes by area/system (e.g., "resolved 8 authentication issues", "fixed 5 database connection problems")
+- Summarize process changes by theme (e.g., "CI/CD pipeline enhancements", "testing infrastructure improvements")
+- Use bullet points for individual consolidated items within categories
 - Aim for 3-7 bullet points per category per ${periodDisplayName.toLowerCase()}
 - Include specific numbers when relevant (e.g., "15 bug fixes", "3 new features")
+- Avoid listing near-identical items separately - consolidate them into meaningful groups
 
 OUTPUT FORMAT:
 Generate ${periodDisplayName.toLowerCase()} summary sections with this exact structure (DO NOT include the main title or commit analysis section):
@@ -354,6 +374,16 @@ QUALITY REQUIREMENTS:
 - Avoid technical jargon where possible
 - Ensure each bullet point represents meaningful work
 - Make the report valuable for both technical and non-technical readers
+- Focus on business impact and user value rather than technical implementation details
+- When consolidating, preserve the most important aspects from similar commits
+- Use progressive disclosure: start with high-level themes, then add specific details
+
+CONTEXT ANALYSIS:
+Before consolidating, analyze the commit data for:
+1. Common file patterns or system areas being modified
+2. Recurring keywords in commit messages that indicate related work
+3. Sequential commits that build upon each other
+4. Bug fixes that address the same underlying issue
 
 Generate the markdown report now:`
   }
