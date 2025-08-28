@@ -69,20 +69,26 @@ npx commit-analyzer --report --input-csv analysis.csv
 npx commit-analyzer --report --limit 50
 
 # Use specific LLM model
-npx commit-analyzer --model claude --limit 10
+npx commit-analyzer --llm claude --limit 10
 ```
 
 ### Options
 
-- `-o, --output <file>`: Output file (default: `output.csv` for analysis, `summary-report.md` for reports)
+- `-o, --output <file>`: Output file (default: `results/commits.csv` for analysis, `results/report.md` for reports)
+- `--output-dir <dir>`: Output directory for CSV and report files (default: current directory)
 - `-f, --file <file>`: Read commit hashes from file (one per line)
 - `-a, --author <email>`: Filter commits by author email (defaults to current user)
 - `-l, --limit <number>`: Limit number of commits to analyze
-- `-m, --model <model>`: LLM model to use (claude, gemini, codex)
+- `--llm <model>`: LLM model to use (claude, gemini, openai)
 - `-r, --resume`: Resume from last checkpoint if available
 - `-c, --clear`: Clear any existing progress checkpoint
 - `--report`: Generate condensed markdown report from existing CSV
 - `--input-csv <file>`: Input CSV file to read for report generation
+- `-v, --verbose`: Enable verbose logging (shows detailed error information)
+- `--since <date>`: Only analyze commits since this date (YYYY-MM-DD, '1 week ago', '2024-01-01')
+- `--until <date>`: Only analyze commits until this date (YYYY-MM-DD, '1 day ago', '2024-12-31')
+- `--no-cache`: Disable caching of analysis results
+- `--batch-size <number>`: Number of commits to process per batch (default: 1 for sequential processing)
 - `-h, --help`: Display help
 - `-V, --version`: Display version
 
@@ -119,12 +125,12 @@ When using the `--report` option, the program generates a condensed markdown rep
 
 ## Requirements
 
-- Node.js 18+ with TypeScript support
+- Node.js 18+ with TypeScript support (Bun runtime recommended)
 - Git repository (must be run within a git repository)
 - At least one supported LLM CLI tool:
   - Claude CLI (`claude`) - recommended, defaults to Sonnet model
   - Gemini CLI (`gemini`)
-  - Codex CLI (`codex`)
+  - OpenAI CLI (`openai`)
 - Valid git commit hashes (when specifying commits manually)
 
 ## Categories
@@ -189,6 +195,44 @@ The tool creates a `.commit-analyzer/` directory to store internal files:
 - **Analysis cache**: Stores LLM analysis results to avoid re-processing the same commits (TTL: 30 days)
 
 Use `--no-cache` to disable caching if needed.
+
+### Date Filtering
+
+The tool supports flexible date filtering using natural language or specific dates:
+
+```bash
+# Analyze commits from the last week
+npx commit-analyzer --since "1 week ago"
+
+# Analyze commits from a specific date range
+npx commit-analyzer --since "2024-01-01" --until "2024-12-31"
+
+# Analyze commits from the beginning of the year
+npx commit-analyzer --since "2024-01-01"
+
+# Analyze commits up to a specific date
+npx commit-analyzer --until "2024-06-30"
+```
+
+Date formats supported:
+- Relative dates: `"1 week ago"`, `"2 months ago"`, `"3 days ago"`
+- ISO dates: `"2024-01-01"`, `"2024-12-31"`
+- Git-style dates: Any format accepted by `git log --since` and `git log --until`
+
+### Batch Processing
+
+Control processing speed and resource usage with batch size options:
+
+```bash
+# Process commits one at a time (default, safest for rate limits)
+npx commit-analyzer --batch-size 1
+
+# Process multiple commits in parallel (faster but may hit rate limits)
+npx commit-analyzer --batch-size 5 --limit 100
+
+# Sequential processing for large datasets
+npx commit-analyzer --batch-size 1 --limit 500
+```
 
 ### Retry Logic
 
@@ -267,7 +311,7 @@ npx commit-analyzer --report --limit 100 --output yearly_analysis.csv
 npx commit-analyzer --report --input-csv existing_analysis.csv --output team_report.md
 
 # Use specific LLM model for analysis
-npx commit-analyzer --model gemini --limit 25
+npx commit-analyzer --llm gemini --limit 25
 
 # Resume interrupted analysis with progress tracking
 npx commit-analyzer --resume
