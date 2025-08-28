@@ -156,9 +156,11 @@ export class CLIApplication {
 
     // Handle input CSV mode (report generation only)
     if (options.inputCsv) {
+      const reportOutputPath = this.determineReportOutputPath(options)
+      
       await this.controller.handleReportGeneration({
         inputCsv: options.inputCsv,
-        output: options.output || CLIApplication.DEFAULT_REPORT_OUTPUT_FILE,
+        output: reportOutputPath,
         sourceInfo: { type: "csv", value: options.inputCsv },
       })
       return
@@ -249,6 +251,27 @@ export class CLIApplication {
     if (csvPath.endsWith(".csv")) {
       const dir = csvPath.substring(0, csvPath.lastIndexOf("/"))
       return dir ? `${dir}/report.md` : "report.md"
+    }
+    return csvPath + ".md"
+  }
+
+  private determineReportOutputPath(options: CLIOptions): string {
+    // Check if explicit output or outputDir was provided in raw options
+    // We need to check raw options to distinguish between user-provided and default values
+    const hasExplicitOutput = process.argv.includes('--output') || process.argv.includes('-o')
+    const hasExplicitOutputDir = process.argv.includes('--output-dir')
+    
+    if (hasExplicitOutput || hasExplicitOutputDir) {
+      return options.output || CLIApplication.DEFAULT_REPORT_OUTPUT_FILE
+    }
+    
+    // Default: generate report in same directory as CSV with .md extension
+    return this.getReportPathFromCsv(options.inputCsv!)
+  }
+
+  private getReportPathFromCsv(csvPath: string): string {
+    if (csvPath.endsWith(".csv")) {
+      return csvPath.replace(/\.csv$/, ".md")
     }
     return csvPath + ".md"
   }
