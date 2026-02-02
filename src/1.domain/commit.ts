@@ -28,7 +28,7 @@ export class Commit {
       throw new Error("Commit date is required")
     }
 
-    if (!diff) {
+    if (diff === undefined || diff === null) {
       throw new Error("Commit diff is required")
     }
   }

@@ -158,8 +158,8 @@ Do not include any other text outside the JSON code block.`
 
       return {
         category: category as CategoryType,
-        summary: summary.substring(0, 80), // Ensure max length
-        description: description,
+        summary: this.sanitizeField(summary).substring(0, 80), // Ensure max length
+        description: this.sanitizeField(description),
       }
     } catch (error) {
       if (this.verbose) {
@@ -177,6 +177,49 @@ Do not include any other text outside the JSON code block.`
         `Failed to parse LLM response: ${error instanceof Error ? error.message : "Unknown error"}`,
       )
     }
+  }
+
+  /**
+   * Sanitize LLM output to remove markdown formatting and clean up text
+   */
+  protected sanitizeField(text: string): string {
+    let cleaned = text
+    
+    // Remove markdown headers (## Header, # Header, etc.)
+    cleaned = cleaned.replace(/^#{1,6}\s+.*$/gm, '')
+    
+    // Remove code blocks
+    cleaned = cleaned.replace(/```[\s\S]*?```/g, '')
+    
+    // Remove bold/italic markdown
+    cleaned = cleaned.replace(/\*\*([^*]+)\*\*/g, '$1')
+    cleaned = cleaned.replace(/\*([^*]+)\*/g, '$1')
+    cleaned = cleaned.replace(/__([^_]+)__/g, '$1')
+    cleaned = cleaned.replace(/_([^_]+)_/g, '$1')
+    
+    // Remove inline code
+    cleaned = cleaned.replace(/`([^`]+)`/g, '$1')
+    
+    // Remove bullet points at start of lines
+    cleaned = cleaned.replace(/^[\s]*[-*+]\s+/gm, '')
+    cleaned = cleaned.replace(/^[\s]*\d+\.\s+/gm, '')
+    
+    // Remove common LLM preambles
+    cleaned = cleaned.replace(/^Based on analyzing this git commit,?\s*(here's the categorization:?)?\s*/i, '')
+    cleaned = cleaned.replace(/^(Commit Analysis|Git Commit Analysis):?\s*/i, '')
+    cleaned = cleaned.replace(/^Type:\s*\w+\s*/i, '')
+    cleaned = cleaned.replace(/^Primary Changes:?\s*/i, '')
+    
+    // Collapse multiple newlines into single spaces
+    cleaned = cleaned.replace(/\n+/g, ' ')
+    
+    // Collapse multiple spaces
+    cleaned = cleaned.replace(/\s+/g, ' ')
+    
+    // Trim whitespace
+    cleaned = cleaned.trim()
+    
+    return cleaned
   }
 
   protected isValidCategory(category: string): category is CategoryType {
