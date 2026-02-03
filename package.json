@@ -1,6 +1,7 @@
 {
   "name": "commit-analyzer",
-  "version": "1.1.5",
+  "version": "1.1.7",
+  "files": ["dist"],
   "description": "Analyze git commits and generate categories, summaries, and descriptions for each commit. Optionally generate a yearly breakdown report of your commit history.",
   "main": "dist/main.ts",
   "bin": {

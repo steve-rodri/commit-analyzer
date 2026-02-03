@@ -187,7 +187,7 @@ Do not include any other text outside the JSON code block.`
     return this.generateTimePeriodSummariesFromCSV(csvContent, 'yearly')
   }
 
-  async generateTimePeriodSummariesFromCSV(csvContent: string, period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<string> {
+  async generateTimePeriodSummariesFromCSV(csvContent: string, period: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<string> {
     const prompt = this.buildTimePeriodReportPrompt(csvContent, period)
     let lastError: Error | null = null
 
@@ -388,8 +388,9 @@ Before consolidating, analyze the commit data for:
 Generate the markdown report now:`
   }
 
-  private getPeriodDisplayName(period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): string {
+  private getPeriodDisplayName(period: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): string {
     switch (period) {
+      case 'hourly': return 'Hour'
       case 'daily': return 'Daily Period'
       case 'weekly': return 'Week'
       case 'monthly': return 'Month'
@@ -398,8 +399,9 @@ Generate the markdown report now:`
     }
   }
 
-  private getSectionHeader(period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): string {
+  private getSectionHeader(period: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): string {
     switch (period) {
+      case 'hourly': return '## [TIME]'
       case 'daily': return '## [DATE] [TIME_OF_DAY]'
       case 'weekly': return '## [WEEK_RANGE]'
       case 'monthly': return '## [MONTH] [YEAR]'
@@ -408,8 +410,9 @@ Generate the markdown report now:`
     }
   }
 
-  private getPreviousPeriodExample(period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): string {
+  private getPreviousPeriodExample(period: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): string {
     switch (period) {
+      case 'hourly': return '## [PREVIOUS_TIME]'
       case 'daily': return '## [PREVIOUS_DATE] [TIME_OF_DAY]'
       case 'weekly': return '## [PREVIOUS_WEEK_RANGE]'
       case 'monthly': return '## [PREVIOUS_MONTH] [YEAR]'

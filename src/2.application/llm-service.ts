@@ -45,7 +45,7 @@ export interface ILLMService {
   /**
    * Generates time-period-based summaries from CSV data using LLM
    */
-  generateTimePeriodSummariesFromCSV(csvContent: string, period: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<string>
+  generateTimePeriodSummariesFromCSV(csvContent: string, period: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'): Promise<string>
 
   /**
    * Checks if the service is available and configured
